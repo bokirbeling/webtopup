@@ -124,11 +124,24 @@ export function createApp(dependencies: AppDependencies = {}) {
     auditLogger
   });
 
-  app.use("/api/orders", createOrdersRouter({ orderService }));
-  app.use("/api/payments", sensitiveEndpointRateLimit, createPaymentRouter({ paymentService, auditLogger }));
-  app.use("/api/fulfillments", sensitiveEndpointRateLimit, createFulfillmentRouter({ fulfillmentService, auditLogger }));
-  app.use("/api/invoices", createInvoiceStatusRouter({ invoiceStatusService }));
-  app.use("/health", healthRouter);
+  function mountRoutes(basePath: string) {
+    app.use(`${basePath}/api/orders`, createOrdersRouter({ orderService }));
+    app.use(
+      `${basePath}/api/payments`,
+      sensitiveEndpointRateLimit,
+      createPaymentRouter({ paymentService, auditLogger })
+    );
+    app.use(
+      `${basePath}/api/fulfillments`,
+      sensitiveEndpointRateLimit,
+      createFulfillmentRouter({ fulfillmentService, auditLogger })
+    );
+    app.use(`${basePath}/api/invoices`, createInvoiceStatusRouter({ invoiceStatusService }));
+    app.use(`${basePath}/health`, healthRouter);
+  }
+
+  mountRoutes("");
+  mountRoutes("/ppob-api");
 
   return app;
 }

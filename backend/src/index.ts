@@ -11,7 +11,22 @@ function toErrorMessage(error: unknown): string {
 
 function bootstrap() {
   const env = readEnv();
-  const app = createApp();
+  const app = createApp({
+    supabaseConfig: {
+      supabaseUrl: env.supabaseUrl,
+      supabaseServiceRoleKey: env.supabaseServiceRoleKey
+    },
+    midtransConfig: {
+      serverKey: env.midtransServerKey,
+      apiBaseUrl: env.midtransApiBaseUrl
+    },
+    digiflazzConfig: {
+      username: env.digiflazzUsername,
+      apiKey: env.digiflazzApiKey,
+      apiBaseUrl: env.digiflazzApiBaseUrl,
+      nodeEnv: env.nodeEnv
+    }
+  });
   const host = "0.0.0.0";
 
   const server = app.listen(env.port, host, () => {

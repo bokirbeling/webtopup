@@ -1,2 +1,12 @@
 backend/node_modules/
 backend/dist/
+Frontend/node_modules/
+Frontend/dist/
+.env
+.env.*
+!.env.example
+.playwright-mcp/
+.sisyphus/run-continuation/
+.sisyphus/notepads/runtime-model-timeout-unblock/
+# CocoIndex Code (ccc)
+/.cocoindex_code/

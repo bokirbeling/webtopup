@@ -48,6 +48,7 @@ export interface PaymentRepository {
 type SupabasePaymentRepositoryOptions = Readonly<{
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
+  tablePrefix?: string;
 }>;
 
 function ensureObject(value: unknown): Record<string, unknown> {
@@ -233,6 +234,12 @@ export class SupabasePaymentRepository implements PaymentRepository {
   }
 
   private async request(path: string, init: RequestInit = {}): Promise<Response> {
+    const scopedPath = this.options.tablePrefix === undefined
+      ? path
+      : path.replace(
+          /\/rest\/v1\/(orders|payments|webhook_events)(?=\?)/,
+          (_match, tableName: string) => "/rest/v1/" + this.options.tablePrefix + tableName
+        );
     const headers: Record<string, string> = {
       apikey: this.options.supabaseServiceRoleKey,
       Authorization: `Bearer ${this.options.supabaseServiceRoleKey}`,
@@ -243,7 +250,7 @@ export class SupabasePaymentRepository implements PaymentRepository {
       Object.assign(headers, init.headers as Record<string, string>);
     }
 
-    return fetch(`${this.baseUrl}${path}`, {
+    return fetch(`${this.baseUrl}${scopedPath}`, {
       ...init,
       headers
     });

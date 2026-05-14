@@ -18,6 +18,7 @@ export interface OrderRepository {
 type SupabaseOrderRepositoryOptions = Readonly<{
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
+  tablePrefix?: string;
 }>;
 
 function asOrderStatus(value: unknown): OrderStatus {
@@ -151,6 +152,12 @@ export class SupabaseOrderRepository implements OrderRepository {
   }
 
   private async request(path: string, init: RequestInit = {}): Promise<Response> {
+    const scopedPath = this.options.tablePrefix === undefined
+      ? path
+      : path.replace(
+          /\/rest\/v1\/(orders|status_history)(?=\?)/,
+          (_match, tableName: string) => "/rest/v1/" + this.options.tablePrefix + tableName
+        );
     const headers: Record<string, string> = {
       apikey: this.options.supabaseServiceRoleKey,
       Authorization: `Bearer ${this.options.supabaseServiceRoleKey}`,
@@ -161,7 +168,7 @@ export class SupabaseOrderRepository implements OrderRepository {
       Object.assign(headers, init.headers as Record<string, string>);
     }
 
-    return fetch(`${this.baseUrl}${path}`, {
+    return fetch(`${this.baseUrl}${scopedPath}`, {
       ...init,
       headers
     });

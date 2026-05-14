@@ -63,6 +63,7 @@ export type UpdateFulfillmentWebhookInput = Readonly<{
 type SupabaseFulfillmentRepositoryOptions = Readonly<{
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
+  tablePrefix?: string;
 }>;
 
 const FULFILLMENT_SELECT = "id,order_id,provider,attempt_no,provider_fulfillment_id,provider_reference,status,serial_number,request_payload,response_payload,processed_at,created_at,updated_at";
@@ -206,13 +207,19 @@ export class SupabaseFulfillmentRepository implements FulfillmentRepository {
   }
 
   private async request(path: string, init: RequestInit = {}): Promise<Response> {
+    const scopedPath = this.options.tablePrefix === undefined
+      ? path
+      : path.replace(
+          /\/rest\/v1\/(orders|fulfillments|webhook_events)(?=\?)/,
+          (_match, tableName: string) => "/rest/v1/" + this.options.tablePrefix + tableName
+        );
     const headers: Record<string, string> = {
       apikey: this.options.supabaseServiceRoleKey,
       Authorization: "Bearer " + this.options.supabaseServiceRoleKey,
       "Content-Type": "application/json"
     };
     Object.assign(headers, init.headers as Record<string, string> | undefined);
-    return fetch(this.baseUrl + path, { ...init, headers });
+    return fetch(this.baseUrl + scopedPath, { ...init, headers });
   }
 
   async findOrderById(orderId: string): Promise<FulfillmentOrderLookup | null> {

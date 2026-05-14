@@ -32,6 +32,7 @@ export type AppDependencies = Readonly<{
   supabaseConfig?: Readonly<{
     supabaseUrl: string;
     supabaseServiceRoleKey: string;
+    tablePrefix?: string;
   }>;
   midtransConfig?: Readonly<{
     serverKey: string;
@@ -58,7 +59,8 @@ export function createApp(dependencies: AppDependencies = {}) {
       ? new InMemoryOrderRepository()
       : new SupabaseOrderRepository({
           supabaseUrl: dependencies.supabaseConfig.supabaseUrl,
-          supabaseServiceRoleKey: dependencies.supabaseConfig.supabaseServiceRoleKey
+          supabaseServiceRoleKey: dependencies.supabaseConfig.supabaseServiceRoleKey,
+          tablePrefix: dependencies.supabaseConfig.tablePrefix
         });
 
   const paymentRepository =
@@ -66,7 +68,8 @@ export function createApp(dependencies: AppDependencies = {}) {
       ? new InMemoryPaymentRepository(orderRepository as InMemoryOrderRepository)
       : new SupabasePaymentRepository({
           supabaseUrl: dependencies.supabaseConfig.supabaseUrl,
-          supabaseServiceRoleKey: dependencies.supabaseConfig.supabaseServiceRoleKey
+          supabaseServiceRoleKey: dependencies.supabaseConfig.supabaseServiceRoleKey,
+          tablePrefix: dependencies.supabaseConfig.tablePrefix
         });
 
   const fulfillmentRepository =
@@ -74,7 +77,8 @@ export function createApp(dependencies: AppDependencies = {}) {
       ? new InMemoryFulfillmentRepository(orderRepository as InMemoryOrderRepository)
       : new SupabaseFulfillmentRepository({
           supabaseUrl: dependencies.supabaseConfig.supabaseUrl,
-          supabaseServiceRoleKey: dependencies.supabaseConfig.supabaseServiceRoleKey
+          supabaseServiceRoleKey: dependencies.supabaseConfig.supabaseServiceRoleKey,
+          tablePrefix: dependencies.supabaseConfig.tablePrefix
         });
 
   const orderService =

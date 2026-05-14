@@ -15,6 +15,7 @@ export type BackendEnv = Readonly<{
   port: number;
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
+  supabaseTablePrefix: string;
   midtransServerKey: string;
   midtransApiBaseUrl: string;
   digiflazzUsername: string | null;
@@ -115,6 +116,7 @@ export function readEnv(rawEnv: NodeJS.ProcessEnv = process.env): BackendEnv {
     port: parsePort(portRaw),
     supabaseUrl: parseSupabaseUrl(supabaseUrlRaw),
     supabaseServiceRoleKey: supabaseServiceRoleKeyRaw,
+    supabaseTablePrefix: rawEnv.SUPABASE_TABLE_PREFIX?.trim() ?? "",
     midtransServerKey: midtransServerKeyRaw,
     midtransApiBaseUrl: parseHttpUrl(midtransApiBaseUrlRaw, "MIDTRANS_API_BASE_URL"),
     digiflazzUsername: digiflazzUsernameRaw === "" ? null : digiflazzUsernameRaw,

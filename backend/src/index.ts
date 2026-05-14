@@ -14,7 +14,8 @@ function bootstrap() {
   const app = createApp({
     supabaseConfig: {
       supabaseUrl: env.supabaseUrl,
-      supabaseServiceRoleKey: env.supabaseServiceRoleKey
+      supabaseServiceRoleKey: env.supabaseServiceRoleKey,
+      tablePrefix: env.supabaseTablePrefix === "" ? undefined : env.supabaseTablePrefix
     },
     midtransConfig: {
       serverKey: env.midtransServerKey,

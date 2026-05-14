@@ -1,0 +1,18 @@
+Task 13 reconciliation error evidence
+
+Probe: npm --prefix backend test -- --runTestsByPath src/modules/reconcile/reconcile.service.test.ts
+Result: PASS (3 tests)
+
+Illegal correction scenario: failed payment after terminal success order
+- Setup: created order and moved it through pending_payment -> paid -> fulfillment_pending -> success.
+- Inserted latest Midtrans payment with status=failed after the terminal success state.
+- Detected issue: payment_terminal_order_not_terminal
+- Attempted target: failed
+- Result action: denied
+- Explicit result reason prefix: Correction denied:
+- Mutation proof: order remained success after reconciliation; terminal regression was not applied.
+
+Safety property:
+- Reconciliation uses OrderService.transitionOrderStatus for every correction attempt.
+- No blind order status overwrite is used.
+- Existing transition/terminal locks decide whether correction is allowed.

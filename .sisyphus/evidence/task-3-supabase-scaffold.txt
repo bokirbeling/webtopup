@@ -1,0 +1,13 @@
+Task 3 Supabase scaffold evidence
+
+Verified scaffold files exist:
+- `supabase/config.toml`
+- `supabase/README.md`
+- `supabase/.gitignore`
+- `supabase/migrations/20260422010406_transactional_schema_rls_idempotency_task4_v2.sql`
+
+Historical note from notepad:
+- Supabase CLI was installed from release binary after global npm install was unsupported.
+- Migration command workflow was validated at command-help level before schema execution.
+
+Result: PASS. Supabase scaffold and migration workflow files exist.

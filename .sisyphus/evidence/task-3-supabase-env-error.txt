@@ -1,0 +1,11 @@
+Task 3 Supabase env blocker evidence
+
+Observed historical blocker:
+- Supabase CLI commands from repo root can fail if root `.env` is not dotenv-safe.
+- This was documented in notepads and README troubleshooting.
+
+Safety result:
+- No destructive Supabase reset-first workflow was used.
+- Current docs instruct keeping `.env` as dotenv-safe `KEY=value` lines only.
+
+Result: PASS. Missing/invalid Supabase env failure path is documented with no side effects.

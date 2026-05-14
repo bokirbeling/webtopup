@@ -1,0 +1,10 @@
+Task 2 missing-env error evidence
+
+Runtime check performed after backend build:
+- Build: `npm --prefix backend run build`
+- Runtime call: load `backend/dist/config/env.js`, omit `SUPABASE_URL`, call `readEnv()`.
+
+Observed error:
+`[config] Missing required environment variables: SUPABASE_URL`
+
+Result: PASS. Backend config fails fast with a clear missing-key message.

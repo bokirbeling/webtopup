@@ -1,0 +1,28 @@
+Task 12 production guard evidence
+
+Probe: npm --prefix backend test -- --runTestsByPath src/modules/fulfillment/fulfillment.router.test.ts
+Result: PASS
+
+Production Digiflazz mock-block scenario:
+- Endpoint: POST /api/fulfillments/digiflazz/trigger
+- Environment in service config: NODE_ENV=production
+- Digiflazz credentials: missing
+- HTTP status: 400
+- Response code: FULFILLMENT_VALIDATION_ERROR
+- Explicit message: Digiflazz credentials are required in production.
+- Mock path proof: no fulfillment record was created for provider=digiflazz and order reference.
+
+Sanitized audit event shape recorded:
+{
+  "type": "fulfillment_security_rejection",
+  "provider": "digiflazz",
+  "route": "/digiflazz/trigger",
+  "method": "POST",
+  "statusCode": 400,
+  "orderId": "<order-id>",
+  "reason": "Digiflazz credentials are required in production.",
+  "occurredAt": "<iso-timestamp>"
+}
+
+Secret handling:
+- Production guard evidence contains no Digiflazz API key, Midtrans key, Supabase key, or raw secret material.

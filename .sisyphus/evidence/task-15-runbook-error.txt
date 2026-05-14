@@ -1,0 +1,12 @@
+Task 15 missing-env troubleshooting evidence
+
+Runtime check performed after backend build:
+- Command shape: build backend, load `backend/dist/config/env.js`, omit `SUPABASE_URL`, call `readEnv()`.
+- Observed runtime error: `[config] Missing required environment variables: SUPABASE_URL`.
+
+README documentation now matches runtime behavior:
+- Troubleshooting section says missing required keys fail fast with `[config] Missing required environment variables: KEY_NAME`.
+- Required backend keys listed: `NODE_ENV`, `PORT`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `MIDTRANS_SERVER_KEY`.
+- Remediation instructs adding the missing key to `.env` following `.env.example` group order.
+
+Result: PASS. Missing-key error path is documented and matches backend behavior.

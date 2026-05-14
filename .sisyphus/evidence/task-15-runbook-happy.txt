@@ -1,0 +1,28 @@
+Task 15 runbook happy path evidence
+
+Scope verified:
+- `readme.md` is now an executable localhost runbook for install, dev, lint, typecheck, test, build, webhook simulation, troubleshooting, and deployment notes.
+- `.env.example` is grouped with placeholder-only values and aligns with README environment sections.
+
+Documented verification commands:
+- `npm --prefix backend run lint`
+- `npm --prefix backend run typecheck`
+- `npm --prefix backend test`
+- `npm --prefix backend run build`
+- `npm --prefix Frontend run lint`
+- `npm --prefix Frontend run typecheck`
+- `npm --prefix Frontend test`
+- `npm --prefix Frontend run build`
+
+Fresh setup commands documented:
+- `npm --prefix backend install`
+- `npm --prefix Frontend install`
+- `npm --prefix backend run dev`
+- `npm --prefix Frontend run dev`
+
+Webhook simulation documented:
+- Midtrans signature formula: `SHA512(order_id + status_code + gross_amount + MIDTRANS_SERVER_KEY)`.
+- Midtrans callback fixture uses `ORD-TEST-001`, `TX-TEST-001`, status code `200`, gross amount `20000.00`.
+- Digiflazz callback fixture uses `ref_id=ORD-TEST-001`, `trx_id=DGF-TEST-001`, status `Sukses`, `rc=00`, and serial `SN-TASK-14-001`.
+
+Result: PASS. The runbook is reproducible from a clean shell once project-local `.env` placeholder values are filled.

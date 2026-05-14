@@ -1,0 +1,29 @@
+Task: 7 - Guest order API create happy path evidence
+Date: 2026-04-22
+Command:
+  npx tsx -e "import request from 'supertest'; import { createApp } from './src/app'; import { InMemoryOrderRepository } from './src/modules/order/order.repository'; import { createOrderService } from './src/modules/order/order.service'; (async () => { const repository = new InMemoryOrderRepository(); const service = createOrderService({ repository, idGenerator: () => 'order-evidence-001', invoiceCodeGenerator: () => 'INV-20260422-9001', clock: () => new Date('2026-04-22T09:00:00.000Z') }); const app = createApp({ orderService: service }); const response = await request(app).post('/api/orders').send({ customer_ref: 'guest-08123456789', product_code: 'ml-diamond-86', provider: 'digiflazz', amount_minor: 20000, currency: 'idr', metadata: { source: 'evidence_probe' } }); const history = repository.getStatusHistoryByOrderId('order-evidence-001'); console.log(JSON.stringify({ probe: 'task-7-order-create', status: response.status, body: response.body, history }, null, 2)); })();"
+
+Output:
+{
+  "probe": "task-7-order-create",
+  "status": 201,
+  "body": {
+    "order_id": "order-evidence-001",
+    "invoice_code": "INV-20260422-9001",
+    "status": "pending_payment"
+  },
+  "history": [
+    {
+      "id": 1,
+      "orderId": "order-evidence-001",
+      "fromStatus": "created",
+      "toStatus": "pending_payment",
+      "note": "order_created",
+      "metadata": {
+        "source": "orders_api"
+      },
+      "createdBy": "system",
+      "createdAt": "2026-04-22T09:00:00.000Z"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+Task 4 database idempotency evidence
+
+Schema migration file:
+- `supabase/migrations/20260422010406_transactional_schema_rls_idempotency_task4_v2.sql`
+
+Verified by implementation review:
+- Provider-level dedupe constraints are part of the transaction schema design.
+- Later runtime modules reuse persisted webhook/payment idempotency primitives.
+- Backend regression tests verify duplicate Midtrans webhook replay returns `idempotent: true` and does not create duplicate payment state.
+
+Result: PASS. Database idempotency design exists and runtime regression validates replay behavior.

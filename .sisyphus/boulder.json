@@ -1,0 +1,34 @@
+{
+  "active_plan": "D:\\coding\\1.PPOB PAYMENT\\.sisyphus\\plans\\ppob-fullstack-mvp.md",
+  "started_at": "2026-04-22T06:26:37.000Z",
+  "session_ids": [
+    "ses_24c27b617ffeNEibWKsem1seku",
+    "ses_24c20179bffe3Vlj7gr1bc4jqz",
+    "ses_24c1cb4b8ffeCmn6QUwfxxA4Aw",
+    "ses_24c1cb3c5ffeL5l1yE2UivQOTx",
+    "ses_24c1d3d75ffeDhT6334MRemfaj",
+    "ses_24c0ef893ffeXaln2pkWAR2PAB"
+  ],
+  "plan_name": "ppob-fullstack-mvp",
+  "agent": "atlas",
+  "task_sessions": {
+    "todo:7": {
+      "task_key": "todo:7",
+      "task_label": "7",
+      "task_title": "Implement guest order API + state transition service",
+      "session_id": "ses_24c1d3d75ffeDhT6334MRemfaj",
+      "agent": "Sisyphus-Junior",
+      "category": "implementation",
+      "updated_at": "2026-04-22T06:40:39.126Z"
+    },
+    "todo:8": {
+      "task_key": "todo:8",
+      "task_label": "8",
+      "task_title": "Integrate Midtrans payment + secure webhook handler",
+      "session_id": "ses_24c0ef893ffeXaln2pkWAR2PAB",
+      "agent": "Sisyphus-Junior",
+      "category": "security",
+      "updated_at": "2026-04-22T07:00:11.360Z"
+    }
+  }
+}

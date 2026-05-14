@@ -14,3 +14,19 @@ export async function readApiError(response: Response, fallbackMessage: string) 
     return fallbackMessage;
   }
 }
+
+export function bearerHeaders(token: string) {
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+export async function readJsonApi<T>(path: string, init?: RequestInit) {
+  const response = await fetch(buildApiUrl(path), init);
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, 'Permintaan gagal diproses.'));
+  }
+
+  return (await response.json()) as T;
+}

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { type CatalogService } from "../catalog/pricing.service";
 import { type OrderRepository } from "./order.repository";
 import {
   OrderTransitionError,
@@ -7,6 +8,7 @@ import {
 } from "./order.transition.service";
 import {
   type CreateGuestOrderInput,
+  type CreateOrderInput,
   type OrderStatus,
   type OrderTransitionInput,
   type OrderRecord
@@ -14,18 +16,22 @@ import {
 
 type OrderServiceOptions = Readonly<{
   repository: OrderRepository;
+  catalogService?: CatalogService;
   idGenerator?: () => string;
   invoiceCodeGenerator?: (createdAt: Date) => string;
   clock?: () => Date;
   transitionService?: OrderTransitionService;
 }>;
 
+type CreateOrderResult = Readonly<{
+  orderId: string;
+  invoiceCode: string;
+  status: OrderStatus;
+}>;
+
 export type OrderService = Readonly<{
-  createGuestOrder(input: CreateGuestOrderInput): Promise<{
-    orderId: string;
-    invoiceCode: string;
-    status: OrderStatus;
-  }>;
+  createOrder(input: CreateOrderInput): Promise<CreateOrderResult>;
+  createGuestOrder(input: CreateGuestOrderInput): Promise<CreateOrderResult>;
   transitionOrderStatus(input: OrderTransitionInput): Promise<OrderRecord>;
 }>;
 
@@ -66,41 +72,79 @@ export function createOrderService(options: OrderServiceOptions): OrderService {
   const clock = options.clock ?? defaultClock;
   const transitionService = options.transitionService ?? new OrderTransitionService();
 
-  return {
+  async function createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
+    const createdAt = clock();
+    const orderId = idGenerator();
+    const invoiceCode = invoiceCodeGenerator(createdAt);
+
+    let productCode = input.productCode;
+    let provider = input.provider;
+    let amountMinor = input.amountMinor;
+    let basePriceSnapshot: number | null = null;
+    let markupSnapshot: number | null = null;
+    let rolePriceSnapshot: number | null = null;
+    let pricingRuleIdSnapshot: string | null = null;
+
+    if (input.productId !== undefined && input.productId !== null) {
+      if (options.catalogService === undefined) {
+        throw new Error("Catalog service is required for product-priced orders.");
+      }
+
+      const pricedProduct = await options.catalogService.quoteProduct(input.productId, input.roleType);
+      productCode = pricedProduct.product.skuDigiflazz;
+      provider = pricedProduct.product.provider;
+      amountMinor = pricedProduct.finalPriceMinor;
+      basePriceSnapshot = pricedProduct.basePriceMinor;
+      markupSnapshot = pricedProduct.markupMinor;
+      rolePriceSnapshot = pricedProduct.finalPriceMinor;
+      pricingRuleIdSnapshot = pricedProduct.pricing.ruleId;
+    }
+
+    await options.repository.createOrder({
+      id: orderId,
+      orderNumber: invoiceCode,
+      customerRef: input.customerRef,
+      userId: input.userId,
+      productCode,
+      provider,
+      amountMinor,
+      currency: input.currency,
+      status: "created",
+      metadata: input.metadata,
+      basePriceSnapshot,
+      markupSnapshot,
+      rolePriceSnapshot,
+      pricingRuleIdSnapshot,
+      createdAt,
+      updatedAt: createdAt
+    });
+
+    await service.transitionOrderStatus({
+      orderId,
+      toStatus: "pending_payment",
+      note: "order_created",
+      metadata: {
+        source: "orders_api"
+      },
+      createdBy: "system"
+    });
+
+    return {
+      orderId,
+      invoiceCode,
+      status: "pending_payment"
+    };
+  }
+
+  const service: OrderService = {
+    createOrder,
+
     async createGuestOrder(input: CreateGuestOrderInput) {
-      const createdAt = clock();
-      const orderId = idGenerator();
-      const invoiceCode = invoiceCodeGenerator(createdAt);
-
-      await options.repository.createOrder({
-        id: orderId,
-        orderNumber: invoiceCode,
-        customerRef: input.customerRef,
-        productCode: input.productCode,
-        provider: input.provider,
-        amountMinor: input.amountMinor,
-        currency: input.currency,
-        status: "created",
-        metadata: input.metadata,
-        createdAt,
-        updatedAt: createdAt
+      return createOrder({
+        ...input,
+        userId: null,
+        roleType: "pengguna"
       });
-
-      await this.transitionOrderStatus({
-        orderId,
-        toStatus: "pending_payment",
-        note: "order_created",
-        metadata: {
-          source: "orders_api"
-        },
-        createdBy: "system"
-      });
-
-      return {
-        orderId,
-        invoiceCode,
-        status: "pending_payment"
-      };
     },
 
     async transitionOrderStatus(input: OrderTransitionInput) {
@@ -128,6 +172,8 @@ export function createOrderService(options: OrderServiceOptions): OrderService {
       return updatedOrder;
     }
   };
+
+  return service;
 }
 
 export { OrderTransitionError };

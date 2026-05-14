@@ -1,0 +1,24 @@
+# Task 4 product catalog/pricing happy-path evidence
+
+Timestamp: 2026-05-14
+
+Command: npm test -- --runInBand src/modules/catalog/catalog.router.test.ts
+Working directory: backend/
+Observed result: exit code 0; Test Suites: 1 passed, 1 total; Tests: 3 passed, 3 total.
+Covered: unauthenticated pengguna catalog price 12000 for base 10000, authenticated seller catalog price 10500 via product-specific rule, category fixed+percentage pricing, /ppob-api catalog mount, admin default zero markup.
+
+Command: npm run lint
+Working directory: backend/
+Observed result: exit code 0; eslint "src/**/*.ts" completed without errors.
+
+Command: npm run typecheck
+Working directory: backend/
+Observed result: exit code 0; tsc --noEmit -p tsconfig.json completed without errors.
+
+Command: npm test -- --runInBand
+Working directory: backend/
+Observed result: exit code 0; full run completed. Follow-up compact run `npm test -- --runInBand --silent` reported Test Suites: 13 passed, 13 total; Tests: 30 passed, 30 total.
+
+Command: npm run build
+Working directory: backend/
+Observed result: exit code 0; tsc -p tsconfig.json completed without errors.

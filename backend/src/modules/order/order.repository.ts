@@ -21,6 +21,8 @@ type SupabaseOrderRepositoryOptions = Readonly<{
   tablePrefix?: string;
 }>;
 
+const ORDER_SELECT = "id,order_number,customer_ref,user_id,product_code,provider,amount_minor,currency,status,metadata,base_price_snapshot,markup_snapshot,role_price_snapshot,pricing_rule_id_snapshot,created_at,updated_at";
+
 function asOrderStatus(value: unknown): OrderStatus {
   if (
     value === "created" ||
@@ -43,6 +45,23 @@ function ensureObject(value: unknown): Record<string, unknown> {
   }
 
   return {};
+}
+
+function parseNullableInteger(value: unknown): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
 }
 
 function parseOrderRow(value: unknown): OrderRecord {
@@ -77,12 +96,17 @@ function parseOrderRow(value: unknown): OrderRecord {
     id: row.id,
     orderNumber: row.order_number,
     customerRef: typeof row.customer_ref === "string" ? row.customer_ref : null,
+    userId: typeof row.user_id === "string" ? row.user_id : null,
     productCode: row.product_code,
     provider: row.provider,
     amountMinor,
     currency: row.currency,
     status: asOrderStatus(row.status),
     metadata: ensureObject(row.metadata),
+    basePriceSnapshot: parseNullableInteger(row.base_price_snapshot),
+    markupSnapshot: parseNullableInteger(row.markup_snapshot),
+    rolePriceSnapshot: parseNullableInteger(row.role_price_snapshot),
+    pricingRuleIdSnapshot: typeof row.pricing_rule_id_snapshot === "string" ? row.pricing_rule_id_snapshot : null,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at)
   };
@@ -176,7 +200,7 @@ export class SupabaseOrderRepository implements OrderRepository {
 
   async createOrder(input: CreateOrderRecordInput): Promise<OrderRecord> {
     const response = await this.request(
-      "/rest/v1/orders?select=id,order_number,customer_ref,product_code,provider,amount_minor,currency,status,metadata,created_at,updated_at",
+      "/rest/v1/orders?select=" + ORDER_SELECT,
       {
         method: "POST",
         headers: {
@@ -186,12 +210,17 @@ export class SupabaseOrderRepository implements OrderRepository {
           id: input.id,
           order_number: input.orderNumber,
           customer_ref: input.customerRef,
+          user_id: input.userId,
           product_code: input.productCode,
           provider: input.provider,
           amount_minor: input.amountMinor,
           currency: input.currency,
           status: input.status,
           metadata: input.metadata,
+          base_price_snapshot: input.basePriceSnapshot,
+          markup_snapshot: input.markupSnapshot,
+          role_price_snapshot: input.rolePriceSnapshot,
+          pricing_rule_id_snapshot: input.pricingRuleIdSnapshot,
           created_at: input.createdAt.toISOString(),
           updated_at: input.updatedAt.toISOString()
         })
@@ -212,7 +241,7 @@ export class SupabaseOrderRepository implements OrderRepository {
 
   async findOrderById(orderId: string): Promise<OrderRecord | null> {
     const response = await this.request(
-      `/rest/v1/orders?id=eq.${encodeURIComponent(orderId)}&select=id,order_number,customer_ref,product_code,provider,amount_minor,currency,status,metadata,created_at,updated_at&limit=1`,
+      `/rest/v1/orders?id=eq.${encodeURIComponent(orderId)}&select=${ORDER_SELECT}&limit=1`,
       {
         method: "GET"
       }
@@ -232,7 +261,7 @@ export class SupabaseOrderRepository implements OrderRepository {
 
   async findOrderByInvoiceCode(invoiceCode: string): Promise<OrderRecord | null> {
     const response = await this.request(
-      "/rest/v1/orders?order_number=eq." + encodeURIComponent(invoiceCode) + "&select=id,order_number,customer_ref,product_code,provider,amount_minor,currency,status,metadata,created_at,updated_at&limit=1",
+      "/rest/v1/orders?order_number=eq." + encodeURIComponent(invoiceCode) + "&select=" + ORDER_SELECT + "&limit=1",
       {
         method: "GET"
       }
@@ -252,7 +281,7 @@ export class SupabaseOrderRepository implements OrderRepository {
 
   async updateOrderStatus(orderId: string, status: OrderStatus, updatedAt: Date): Promise<OrderRecord> {
     const response = await this.request(
-      `/rest/v1/orders?id=eq.${encodeURIComponent(orderId)}&select=id,order_number,customer_ref,product_code,provider,amount_minor,currency,status,metadata,created_at,updated_at`,
+      `/rest/v1/orders?id=eq.${encodeURIComponent(orderId)}&select=${ORDER_SELECT}`,
       {
         method: "PATCH",
         headers: {
@@ -349,12 +378,17 @@ export class InMemoryOrderRepository implements OrderRepository {
       id: input.id,
       orderNumber: input.orderNumber,
       customerRef: input.customerRef,
+      userId: input.userId,
       productCode: input.productCode,
       provider: input.provider,
       amountMinor: input.amountMinor,
       currency: input.currency,
       status: input.status,
       metadata: { ...input.metadata },
+      basePriceSnapshot: input.basePriceSnapshot,
+      markupSnapshot: input.markupSnapshot,
+      rolePriceSnapshot: input.rolePriceSnapshot,
+      pricingRuleIdSnapshot: input.pricingRuleIdSnapshot,
       createdAt: input.createdAt,
       updatedAt: input.updatedAt
     };

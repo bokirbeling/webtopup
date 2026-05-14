@@ -2,6 +2,10 @@ import { describe, expect, it } from "@jest/globals";
 import request from "supertest";
 
 import { createApp } from "../../app";
+import { InMemoryAuthRepository } from "../auth/auth.repository";
+import { InMemoryCatalogRepository } from "../catalog/catalog.repository";
+import { createCatalogService } from "../catalog/pricing.service";
+import { type PricingRuleRecord, type ProductRecord } from "../catalog/catalog.types";
 import { InMemoryFulfillmentRepository } from "../fulfillment/fulfillment.repository";
 import { createFulfillmentService } from "../fulfillment/fulfillment.service";
 import { createInvoiceStatusService } from "../invoice-status/invoice-status.service";
@@ -13,14 +17,75 @@ import { createPaymentService } from "../payment/payment.service";
 import { createReconcileService } from "../reconcile/reconcile.service";
 import { InMemoryAuditLogger } from "../../security/audit";
 
-function createLifecycleFixture() {
+const catalogCreatedAt = new Date("2026-05-14T12:00:00.000Z");
+
+type RegisteredUser = Readonly<{
+  user: Readonly<{ id: string }>;
+  token: string;
+}>;
+
+function product(overrides: Partial<ProductRecord>): ProductRecord {
+  return {
+    id: "product-default",
+    skuDigiflazz: "default-sku",
+    name: "Default Product",
+    category: "games",
+    provider: "digiflazz",
+    basePriceMinor: 10_000,
+    isActive: true,
+    metadata: {},
+    createdAt: catalogCreatedAt,
+    updatedAt: catalogCreatedAt,
+    ...overrides
+  };
+}
+
+function pricingRule(overrides: Partial<PricingRuleRecord>): PricingRuleRecord {
+  return {
+    id: "rule-default",
+    scopeType: "global",
+    productId: null,
+    category: null,
+    roleType: "pengguna",
+    markupFixed: 0,
+    markupPercentage: 0,
+    priority: 0,
+    isActive: true,
+    metadata: {},
+    createdAt: catalogCreatedAt,
+    updatedAt: catalogCreatedAt,
+    ...overrides
+  };
+}
+
+async function registerUser(app: ReturnType<typeof createApp>, email: string): Promise<RegisteredUser> {
+  const response = await request(app).post("/api/auth/register").send({
+    email,
+    password: "correct-password"
+  });
+
+  expect(response.status).toBe(201);
+  return response.body as RegisteredUser;
+}
+
+function createLifecycleFixture(options: {
+  authRepository?: InMemoryAuthRepository;
+  catalogRepository?: InMemoryCatalogRepository;
+} = {}) {
   const orderRepository = new InMemoryOrderRepository();
   const paymentRepository = new InMemoryPaymentRepository(orderRepository);
   const fulfillmentRepository = new InMemoryFulfillmentRepository(orderRepository);
   const auditLogger = new InMemoryAuditLogger();
+  const catalogService =
+    options.catalogRepository === undefined
+      ? undefined
+      : createCatalogService({
+          repository: options.catalogRepository
+        });
 
   const orderService = createOrderService({
     repository: orderRepository,
+    catalogService,
     idGenerator: () => "ORD-TEST-001",
     invoiceCodeGenerator: () => "INV-TEST-0001",
     clock: () => new Date("2026-04-22T09:00:00.000Z")
@@ -83,6 +148,8 @@ function createLifecycleFixture() {
   });
 
   const app = createApp({
+    authRepository: options.authRepository,
+    catalogRepository: options.catalogRepository,
     orderService,
     paymentService,
     fulfillmentService,
@@ -94,6 +161,7 @@ function createLifecycleFixture() {
   return {
     app,
     auditLogger,
+    authRepository: options.authRepository,
     orderRepository,
     paymentRepository,
     fulfillmentRepository,
@@ -102,17 +170,17 @@ function createLifecycleFixture() {
   };
 }
 
-function signedMidtransPayload(orderId: string, transactionId = "TX-TEST-001") {
+function signedMidtransPayload(orderId: string, grossAmount = "20000.00", transactionId = "TX-TEST-001") {
   return {
     order_id: orderId,
     status_code: "200",
-    gross_amount: "20000.00",
+    gross_amount: grossAmount,
     transaction_status: "settlement",
     transaction_id: transactionId,
     signature_key: computeMidtransSignatureKey({
       orderId,
       statusCode: "200",
-      grossAmount: "20000.00",
+      grossAmount,
       serverKey: "test-server-key"
     })
   };
@@ -180,6 +248,98 @@ describe("full lifecycle regression suite", () => {
       status: "success",
       payment: expect.objectContaining({ status: "paid" }),
       fulfillment: expect.objectContaining({ status: "success", serial_number: "SN-TASK-14-001" })
+    });
+  });
+
+  it("keeps payment, fulfillment, and invoice flows compatible for seller-priced catalog orders", async () => {
+    const authRepository = new InMemoryAuthRepository();
+    const catalogRepository = new InMemoryCatalogRepository({
+      products: [product({ id: "product-seller", skuDigiflazz: "ml-diamond-172" })],
+      pricingRules: [
+        pricingRule({ id: "seller-global", roleType: "seller", markupFixed: 3_000, priority: 100 }),
+        pricingRule({
+          id: "seller-product",
+          scopeType: "product",
+          productId: "product-seller",
+          roleType: "seller",
+          markupFixed: 500,
+          priority: 1
+        })
+      ]
+    });
+    const fixture = createLifecycleFixture({ authRepository, catalogRepository });
+    const seller = await registerUser(fixture.app, "seller-regression@example.com");
+
+    await authRepository.updateUser(seller.user.id, { role: "seller", updatedAt: catalogCreatedAt });
+
+    const orderResponse = await request(fixture.app)
+      .post("/api/orders")
+      .set("Authorization", "Bearer " + seller.token)
+      .send({
+        customer_ref: "12345678:1234",
+        product_id: "product-seller",
+        product_code: "tampered-code",
+        provider: "tampered-provider",
+        amount_minor: 1,
+        total_price: 1,
+        currency: "IDR",
+        metadata: { source: "task_5_seller_regression" }
+      });
+    expect(orderResponse.status).toBe(201);
+
+    const persistedOrder = await fixture.orderRepository.findOrderById("ORD-TEST-001");
+    expect(persistedOrder).toMatchObject({
+      userId: seller.user.id,
+      productCode: "ml-diamond-172",
+      provider: "digiflazz",
+      amountMinor: 10_500,
+      basePriceSnapshot: 10_000,
+      markupSnapshot: 500,
+      rolePriceSnapshot: 10_500,
+      pricingRuleIdSnapshot: "seller-product"
+    });
+
+    const paymentInitResponse = await request(fixture.app).post("/api/payments/midtrans/initialize").send({
+      order_id: "ORD-TEST-001",
+      idempotency_key: "task-5-init"
+    });
+    expect(paymentInitResponse.status).toBe(201);
+
+    const pendingPayment = await fixture.paymentRepository.findLatestPaymentByOrderId("ORD-TEST-001");
+    expect(pendingPayment).toMatchObject({ amountMinor: 10_500, status: "pending" });
+
+    const midtransResponse = await request(fixture.app)
+      .post("/api/payments/midtrans/webhook")
+      .send(signedMidtransPayload("ORD-TEST-001", "10500.00", "TX-TASK-5-001"));
+    expect(midtransResponse.status).toBe(200);
+    expect(midtransResponse.body).toMatchObject({ code: "PROCESSED" });
+
+    const fulfillmentTriggerResponse = await request(fixture.app).post("/api/fulfillments/digiflazz/trigger").send({
+      order_id: "ORD-TEST-001"
+    });
+    expect(fulfillmentTriggerResponse.status).toBe(201);
+
+    const callbackResponse = await request(fixture.app).post("/api/fulfillments/digiflazz/callback").send({
+      data: {
+        ref_id: "ORD-TEST-001",
+        trx_id: "DGF-TASK-5-001",
+        status: "Sukses",
+        rc: "00",
+        sn: "SN-TASK-5-001"
+      }
+    });
+    expect(callbackResponse.status).toBe(200);
+    expect(callbackResponse.body).toMatchObject({ code: "PROCESSED" });
+
+    const invoiceResponse = await request(fixture.app).get("/api/invoices/INV-TEST-0001/status");
+    expect(invoiceResponse.status).toBe(200);
+    expect(invoiceResponse.body).toMatchObject({
+      invoice_code: "INV-TEST-0001",
+      order_id: "ORD-TEST-001",
+      amount_minor: 10_500,
+      status: "success",
+      payment: expect.objectContaining({ status: "paid" }),
+      fulfillment: expect.objectContaining({ status: "success", serial_number: "SN-TASK-5-001" })
     });
   });
 

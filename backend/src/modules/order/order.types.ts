@@ -1,3 +1,5 @@
+import { type AuthUserRole } from "../auth/auth.types";
+
 export const ORDER_STATUSES = [
   "created",
   "pending_payment",
@@ -12,6 +14,7 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export type CreateGuestOrderInput = Readonly<{
   customerRef: string | null;
+  productId?: string | null;
   productCode: string;
   provider: string;
   amountMinor: number;
@@ -19,16 +22,27 @@ export type CreateGuestOrderInput = Readonly<{
   metadata: Record<string, unknown>;
 }>;
 
+export type CreateOrderInput = CreateGuestOrderInput &
+  Readonly<{
+    userId: string | null;
+    roleType: AuthUserRole;
+  }>;
+
 export type OrderRecord = Readonly<{
   id: string;
   orderNumber: string;
   customerRef: string | null;
+  userId: string | null;
   productCode: string;
   provider: string;
   amountMinor: number;
   currency: string;
   status: OrderStatus;
   metadata: Record<string, unknown>;
+  basePriceSnapshot: number | null;
+  markupSnapshot: number | null;
+  rolePriceSnapshot: number | null;
+  pricingRuleIdSnapshot: string | null;
   createdAt: Date;
   updatedAt: Date;
 }>;
@@ -48,12 +62,17 @@ export type CreateOrderRecordInput = Readonly<{
   id: string;
   orderNumber: string;
   customerRef: string | null;
+  userId: string | null;
   productCode: string;
   provider: string;
   amountMinor: number;
   currency: string;
   status: OrderStatus;
   metadata: Record<string, unknown>;
+  basePriceSnapshot: number | null;
+  markupSnapshot: number | null;
+  rolePriceSnapshot: number | null;
+  pricingRuleIdSnapshot: string | null;
   createdAt: Date;
   updatedAt: Date;
 }>;

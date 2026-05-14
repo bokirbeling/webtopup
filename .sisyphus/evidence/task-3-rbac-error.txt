@@ -1,0 +1,15 @@
+Task 3 RBAC error/public-route evidence
+Date: 2026-05-14
+
+Command:
+  cd backend && npm test -- --runInBand --runTestsByPath src/modules/account/account.router.test.ts src/modules/admin/admin.router.test.ts src/modules/regression/rbac-public-routes.regression.test.ts --silent
+Result:
+  EXIT:0
+
+Observed API paths in tests:
+  1. GET /api/account/status without Authorization returns 401 UNAUTHORIZED.
+  2. GET /api/account/status with an invalid bearer token returns stable 401 UNAUTHORIZED.
+  3. GET /api/admin/users with a non-admin pengguna JWT returns 403 FORBIDDEN.
+  4. GET /api/account/users/:otherUserId/status with a different non-admin user JWT returns 403 FORBIDDEN.
+  5. POST /api/account/reseller-request rejects client-supplied role/is_reseller_active with 400 VALIDATION_ERROR.
+  6. Public regression test succeeds without JWT for POST /api/orders, POST /api/payments/midtrans/webhook, POST /api/fulfillments/digiflazz/trigger, POST /api/fulfillments/digiflazz/callback, and GET /api/invoices/:invoiceCode/status.

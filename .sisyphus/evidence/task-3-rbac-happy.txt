@@ -1,0 +1,14 @@
+Task 3 RBAC happy-path evidence
+Date: 2026-05-14
+
+Command:
+  cd backend && npm test -- --runInBand --runTestsByPath src/modules/admin/admin.router.test.ts --silent
+Result:
+  EXIT:0
+
+Observed API path in test:
+  1. POST /api/auth/register creates pengguna.
+  2. POST /api/account/reseller-request with pengguna JWT returns 200 and user.role=pengguna, user.reseller_status=requested, user.is_reseller_active=false.
+  3. POST /api/admin/users/:userId/reseller/approve with admin JWT returns 200 and user.role=seller, user.reseller_status=approved, user.is_reseller_active=true.
+  4. GET /api/account/status with the same user JWT returns the backend-authoritative seller status after approval.
+  5. Admin suspend and demote endpoints return 200 and mutate seller activity/role server-side only.

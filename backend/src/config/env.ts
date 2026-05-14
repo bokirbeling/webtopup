@@ -7,6 +7,7 @@ const REQUIRED_ENV_KEYS = [
 ] as const;
 
 const ALLOWED_NODE_ENVS = ["development", "test", "production"] as const;
+const TEST_JWT_SECRET = "test-only-jwt-secret-at-least-32-bytes";
 
 type NodeEnv = (typeof ALLOWED_NODE_ENVS)[number];
 
@@ -21,6 +22,11 @@ export type BackendEnv = Readonly<{
   digiflazzUsername: string | null;
   digiflazzApiKey: string | null;
   digiflazzApiBaseUrl: string;
+  jwtSecret: string;
+  jwtExpiresIn: string;
+  passwordHashCost: number;
+  corsAllowedOrigins: readonly string[];
+  adminBootstrapToken: string | null;
 }>;
 
 function isAllowedNodeEnv(value: string): value is NodeEnv {
@@ -59,14 +65,85 @@ function parseHttpUrl(value: string, keyName: string): string {
   try {
     parsedUrl = new URL(value);
   } catch {
-    throw new Error(`[config] Invalid ${keyName}. Expected a valid http(s) URL.`);
+    throw new Error("[config] Invalid " + keyName + ". Expected a valid http(s) URL.");
   }
 
   if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-    throw new Error(`[config] Invalid ${keyName}. Expected a valid http(s) URL.`);
+    throw new Error("[config] Invalid " + keyName + ". Expected a valid http(s) URL.");
   }
 
   return parsedUrl.toString().replace(/\/$/, "");
+}
+
+function parseJwtSecret(rawSecret: string | undefined, nodeEnv: NodeEnv): string {
+  const secret = rawSecret?.trim() ?? "";
+
+  if (secret === "") {
+    if (nodeEnv === "test") {
+      return TEST_JWT_SECRET;
+    }
+
+    throw new Error("[config] Missing required environment variables: JWT_SECRET");
+  }
+
+  if (secret.length < 32) {
+    throw new Error("[config] Invalid JWT_SECRET. Expected at least 32 characters.");
+  }
+
+  if (nodeEnv === "production" && /your_value_here|change_me|changeme|test/i.test(secret)) {
+    throw new Error("[config] Invalid JWT_SECRET. Production secret must not use placeholder or test values.");
+  }
+
+  return secret;
+}
+
+function parseJwtExpiresIn(rawValue: string | undefined): string {
+  const value = rawValue?.trim() ?? "1h";
+
+  if (!/^\d+(ms|s|m|h|d|w|y)$/.test(value)) {
+    throw new Error("[config] Invalid JWT_EXPIRES_IN. Expected values like 15m, 1h, or 7d.");
+  }
+
+  return value;
+}
+
+function parsePasswordHashCost(rawValue: string | undefined, nodeEnv: NodeEnv): number {
+  const fallback = nodeEnv === "test" ? "4" : "12";
+  const value = Number(rawValue?.trim() === "" || rawValue === undefined ? fallback : rawValue);
+
+  if (!Number.isInteger(value) || value < 4 || value > 15) {
+    throw new Error("[config] Invalid PASSWORD_HASH_COST. Expected an integer between 4 and 15.");
+  }
+
+  if (nodeEnv === "production" && value < 12) {
+    throw new Error("[config] Invalid PASSWORD_HASH_COST. Production cost must be at least 12.");
+  }
+
+  return value;
+}
+
+function parseCorsAllowedOrigins(rawValue: string | undefined): readonly string[] {
+  const value = rawValue?.trim() ?? "";
+
+  if (value === "") {
+    return [];
+  }
+
+  return value.split(",").map((origin) => parseHttpUrl(origin.trim(), "CORS_ALLOWED_ORIGINS"));
+}
+
+function parseAdminBootstrapToken(rawValue: string | undefined, nodeEnv: NodeEnv): string | null {
+  const value = rawValue?.trim() ?? "";
+
+  if (value === "") {
+    return null;
+  }
+
+  if (value.length < 32 || (nodeEnv === "production" && /your_value_here|change_me|changeme|test/i.test(value))) {
+    throw new Error("[config] Invalid ADMIN_BOOTSTRAP_TOKEN. Expected a non-placeholder token of at least 32 characters.");
+  }
+
+  return value;
 }
 
 export function readEnv(rawEnv: NodeJS.ProcessEnv = process.env): BackendEnv {
@@ -76,13 +153,13 @@ export function readEnv(rawEnv: NodeJS.ProcessEnv = process.env): BackendEnv {
   });
 
   if (missingKeys.length > 0) {
-    throw new Error(`[config] Missing required environment variables: ${missingKeys.join(", ")}`);
+    throw new Error("[config] Missing required environment variables: " + missingKeys.join(", "));
   }
 
   const nodeEnvRaw = rawEnv.NODE_ENV;
   if (nodeEnvRaw === undefined || !isAllowedNodeEnv(nodeEnvRaw)) {
     throw new Error(
-      `[config] Invalid NODE_ENV "${nodeEnvRaw}". Expected one of: ${ALLOWED_NODE_ENVS.join(", ")}.`
+      "[config] Invalid NODE_ENV \"" + nodeEnvRaw + "\". Expected one of: " + ALLOWED_NODE_ENVS.join(", ") + "."
     );
   }
 
@@ -121,6 +198,12 @@ export function readEnv(rawEnv: NodeJS.ProcessEnv = process.env): BackendEnv {
     midtransApiBaseUrl: parseHttpUrl(midtransApiBaseUrlRaw, "MIDTRANS_API_BASE_URL"),
     digiflazzUsername: digiflazzUsernameRaw === "" ? null : digiflazzUsernameRaw,
     digiflazzApiKey: digiflazzApiKeyRaw === "" ? null : digiflazzApiKeyRaw,
-    digiflazzApiBaseUrl: parseHttpUrl(digiflazzApiBaseUrlRaw, "DIGIFLAZZ_API_BASE_URL")
+    digiflazzApiBaseUrl: parseHttpUrl(digiflazzApiBaseUrlRaw, "DIGIFLAZZ_API_BASE_URL"),
+    jwtSecret: parseJwtSecret(rawEnv.JWT_SECRET, nodeEnvRaw),
+    jwtExpiresIn: parseJwtExpiresIn(rawEnv.JWT_EXPIRES_IN),
+    passwordHashCost: parsePasswordHashCost(rawEnv.PASSWORD_HASH_COST, nodeEnvRaw),
+    corsAllowedOrigins: parseCorsAllowedOrigins(rawEnv.CORS_ALLOWED_ORIGINS),
+    adminBootstrapToken: parseAdminBootstrapToken(rawEnv.ADMIN_BOOTSTRAP_TOKEN, nodeEnvRaw)
   };
 }
+

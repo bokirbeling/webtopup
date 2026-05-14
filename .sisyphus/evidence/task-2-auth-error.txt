@@ -1,0 +1,5 @@
+command: npx tsx auth error-path driver
+role_escalation.status=400; code=VALIDATION_ERROR; field=role
+invalid_login.status=401; code=INVALID_CREDENTIALS; message=Invalid email or password.
+missing_token.status=401; code=UNAUTHORIZED
+invalid_token.status=401; code=UNAUTHORIZED

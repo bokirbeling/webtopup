@@ -17,6 +17,11 @@ function bootstrap() {
       supabaseServiceRoleKey: env.supabaseServiceRoleKey,
       tablePrefix: env.supabaseTablePrefix === "" ? undefined : env.supabaseTablePrefix
     },
+    authConfig: {
+      jwtSecret: env.jwtSecret,
+      jwtExpiresIn: env.jwtExpiresIn,
+      passwordHashCost: env.passwordHashCost
+    },
     midtransConfig: {
       serverKey: env.midtransServerKey,
       apiBaseUrl: env.midtransApiBaseUrl

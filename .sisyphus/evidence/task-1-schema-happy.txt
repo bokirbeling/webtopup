@@ -1,0 +1,23 @@
+Task 1 schema happy-path evidence
+Date: 2026-05-14
+
+Migration created:
+- supabase/migrations/20260514030000_accounts_catalog_pricing_order_snapshots.sql
+
+Static migration validation performed locally:
+- Confirmed public.users, public.products, public.pricing_rules are created.
+- Confirmed public.demo_users, public.demo_products, public.demo_pricing_rules are created for SUPABASE_TABLE_PREFIX=demo_ compatibility.
+- Confirmed public.orders and public.demo_orders receive nullable user_id, base_price_snapshot, markup_snapshot, role_price_snapshot, pricing_rule_id_snapshot columns.
+- Confirmed FK/index coverage for orders.user_id, demo_orders.user_id, pricing rule snapshots, users.email, products.sku_digiflazz, and pricing lookup paths.
+- Confirmed RLS/grant style: anon/authenticated revoked, service_role granted, RLS enabled/forced on new base/demo tables, service_role_manage_* policies added.
+
+Commands run:
+- supabase --version -> 2.90.0
+- supabase db lint --local --fail-on error -> unable to connect because no local Postgres/Supabase DB is listening at 127.0.0.1:54322.
+- lsp_diagnostics on SQL migration -> no SQL LSP configured in this workspace.
+- npm test -- --runInBand from backend/ -> 8 test suites passed, 22 tests passed.
+- npm run build from backend/ -> TypeScript build completed with exit code 0.
+- Static PowerShell migration presence check -> Static migration checks passed.
+
+Dry-run limitation:
+- psql is not installed and the local Supabase database is not running, so live catalog queries against information_schema/pg_indexes could not be executed in this environment. The migration was validated by file inspection/static checks and by running the existing backend transactional test suite/build.

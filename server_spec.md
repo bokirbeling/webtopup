@@ -166,3 +166,23 @@ static_site:
 ## Ringkasan Kebijakan
 
 MCP hanya boleh melakukan discovery read-only. Semua aksi destruktif, deployment, install dependency, migration, restart service, dan pembacaan secret harus diblokir. Tujuan utama akses ini adalah membantu AI memahami framework yang cocok untuk server dan menyusun PRD yang realistis.
+
+## Catatan Production Readiness Task 8
+
+- Domain publik utama untuk fase production readiness adalah `adnanpay.com`.
+- Aset frontend statis harus ditempatkan di `/home/adnanpay/public_html`.
+- Backend Express harus dijalankan via cPanel Node.js App / Passenger dengan target build `backend/dist/index.js` atau `dist/index.js` bila application root diarahkan langsung ke folder `backend`.
+- Kompatibilitas route `/ppob-api` tetap relevan karena backend mount di root dan `/ppob-api`; gunakan root mount sebagai target utama, dan pertahankan `/ppob-api` hanya bila proxy cPanel lama masih membutuhkannya.
+- Jangan asumsikan PM2, systemd, root, `sudo`, package update, atau restart service di luar UI cPanel.
+- Hasil MCP terbaru untuk inspeksi server belum sukses: percobaan SSH user-level gagal dengan `Cannot parse privateKey: Encrypted private OpenSSH key detected, but no passphrase given`. Catat ini sebagai blocker untuk smoke test server final, bukan sebagai bukti deploy sukses.
+
+## Catatan Digiflazz Buyer Deployment
+
+- Source-of-truth deployment adalah GitHub: kode lokal dipush, lalu user cPanel `adnanpay` menarik update dari server.
+- Backend app root: `/home/adnanpay/ppob-backend`.
+- Public frontend root: `/home/adnanpay/public_html`.
+- Preserve `/home/adnanpay/ppob-backend/.env.production`; file ini memuat secret server-only dan tidak boleh dicetak.
+- Buyer webhook URL: `https://adnanpay.com/ppob-api/api/fulfillments/digiflazz/callback`.
+- Gunakan satu cPanel SMTP sender mailbox, contoh `no-reply@adnanpay.com`; user/reseller Adnanpay bukan akun email cPanel.
+- Restart Passenger setelah deploy dengan `touch /home/adnanpay/ppob-backend/tmp/restart.txt`.
+- Rollback dari backup timestamp di `/home/adnanpay/backups/`.

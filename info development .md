@@ -54,8 +54,10 @@ supabase link --project-ref wprbrqmimwwukrhuawms
 
 service_role
 secret
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndwcmJycW1pbXd3dWtyaHVhd21zIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Njc2NTg3MywiZXhwIjoyMDkyMzQxODczfQ.ttx6S4Yr9p0KXl-eZ9Gg5IgAC8X0qRqadOiCYx1uOFc
+[REDACTED - rotate in Supabase dashboard]
 This key has the ability to bypass Row Level Security. Never share it publicly. If leaked, generate a new JWT secret immediately. Prefer using Secret API keys instead.
+
+Rotation note: If this file was ever shared or committed, rotate exposed Supabase, Digiflazz, and Midtrans backend secrets in their provider dashboards before further use.
 
 Publishable key
 This key is safe to use in a browser if you have enabled Row Level Security (RLS) for your tables and configured policies.
@@ -79,8 +81,7 @@ New secret key
 Name	API Key	
 default
 No description
-sb_secret_nQgll
-Z_CcKvL-bc3RKJD1A_1q0Dr1Ra
+[REDACTED - rotate in Supabase dashboard]
 
 
  
@@ -109,7 +110,7 @@ Username
 racufig5E1rg
  
 Development Key
-dev-33b28300-8287-11ec-adb2-692ea50f5ef5
+[REDACTED - rotate in Digiflazz dashboard]
  
 Production Key
 Whitelist IP
@@ -138,6 +139,6 @@ Client Key
 SB-Mid-client-1MSPDrIDg0a71w-h
 
 Server Key
-SB-Mid-server-qJvT62BTwM7X169rmYTew6dK
+[REDACTED - rotate in Midtrans dashboard]
 
 https://docs.midtrans.com/reference/credential-exchange-copy#example-public-key-generation

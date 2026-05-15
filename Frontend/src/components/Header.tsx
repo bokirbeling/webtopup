@@ -33,7 +33,7 @@ export default function Header() {
               <Zap size={18} className="text-white" />
             </div>
             <span className="text-white font-bold text-xl tracking-tight">
-              BayarKu<span className="text-amber-400">.</span>
+              Adnanpay<span className="text-amber-400">.</span>
             </span>
           </div>
 
@@ -74,12 +74,12 @@ export default function Header() {
             <button className="hidden sm:flex p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-all">
               <ShoppingCart size={18} />
             </button>
-            <button className="hidden sm:block px-3 py-1.5 border border-amber-400/70 text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-400/10 transition-all">
+            <a href="/dashboard" className="hidden sm:block px-3 py-1.5 border border-amber-400/70 text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-400/10 transition-all">
               Masuk
-            </button>
-            <button className="hidden sm:block px-3 py-1.5 bg-amber-400 text-slate-900 rounded-lg text-sm font-bold hover:bg-amber-300 transition-all">
+            </a>
+            <a href="/dashboard" className="hidden sm:block px-3 py-1.5 bg-amber-400 text-slate-900 rounded-lg text-sm font-bold hover:bg-amber-300 transition-all">
               Daftar
-            </button>
+            </a>
             <button
               className="lg:hidden p-2 text-slate-300 hover:text-white"
               onClick={() => setMobileOpen(!mobileOpen)}
@@ -103,12 +103,12 @@ export default function Header() {
             </button>
           ))}
           <div className="flex gap-2 pt-2">
-            <button className="flex-1 py-2 border border-amber-400/70 text-amber-400 rounded-lg text-sm font-medium">
+            <a href="/dashboard" className="flex-1 py-2 border border-amber-400/70 text-amber-400 rounded-lg text-sm font-medium text-center">
               Masuk
-            </button>
-            <button className="flex-1 py-2 bg-amber-400 text-slate-900 rounded-lg text-sm font-bold">
+            </a>
+            <a href="/dashboard" className="flex-1 py-2 bg-amber-400 text-slate-900 rounded-lg text-sm font-bold text-center">
               Daftar
-            </button>
+            </a>
           </div>
         </div>
       )}

@@ -58,7 +58,7 @@ export default function Features() {
         {/* Header */}
         <div className="text-center mb-12">
           <span className="inline-block text-xs font-bold text-amber-600 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full mb-3 tracking-wider uppercase">
-            Kenapa BayarKu?
+            Kenapa Adnanpay?
           </span>
           <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-3">
             Lebih dari Sekedar Bayar Tagihan

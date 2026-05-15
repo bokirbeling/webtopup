@@ -44,7 +44,7 @@ export default function Footer() {
                 <Zap size={18} className="text-white" />
               </div>
               <span className="text-white font-bold text-xl">
-                BayarKu<span className="text-amber-400">.</span>
+                Adnanpay<span className="text-amber-400">.</span>
               </span>
             </div>
             <p className="text-sm leading-relaxed mb-5 max-w-xs">
@@ -57,7 +57,7 @@ export default function Footer() {
               </div>
               <div className="flex items-center gap-2">
                 <Mail size={14} className="text-amber-400 flex-shrink-0" />
-                <span>support@bayarku.id</span>
+                <span>support@adnanpay.com</span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin size={14} className="text-amber-400 flex-shrink-0" />
@@ -104,7 +104,7 @@ export default function Footer() {
       {/* Bottom bar */}
       <div className="border-t border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
-          <span>&copy; 2025 BayarKu. Hak cipta dilindungi.</span>
+          <span>&copy; 2025 Adnanpay. Hak cipta dilindungi.</span>
           <div className="flex items-center gap-1">
             <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
             <span>Semua sistem berjalan normal</span>

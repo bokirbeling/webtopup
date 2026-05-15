@@ -10,6 +10,7 @@ export type AuthUser = Readonly<{
   role: AuthUserRole;
   isResellerActive: boolean;
   resellerStatus: ResellerStatus;
+  emailVerifiedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }>;
@@ -17,6 +18,10 @@ export type AuthUser = Readonly<{
 export type AuthUserRecord = AuthUser &
   Readonly<{
     passwordHash: string;
+    emailVerificationTokenHash: string | null;
+    emailVerificationExpiresAt: Date | null;
+    emailVerificationSentAt: Date | null;
+    emailVerificationResendCount: number;
   }>;
 
 export type RegisterUserInput = Readonly<{
@@ -33,4 +38,12 @@ export type AuthSession = Readonly<{
   user: AuthUser;
   token: string;
   expiresIn: string;
+}>;
+
+export type EmailVerificationStatus = Readonly<{
+  emailVerified: boolean;
+  emailVerifiedAt: Date | null;
+  emailVerificationSentAt: Date | null;
+  emailVerificationExpiresAt: Date | null;
+  emailVerificationResendCount: number;
 }>;

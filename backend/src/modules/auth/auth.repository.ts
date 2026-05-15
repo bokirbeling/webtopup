@@ -6,6 +6,11 @@ export type UpdateAuthUserInput = Readonly<{
   role?: AuthUserRole;
   isResellerActive?: boolean;
   resellerStatus?: ResellerStatus;
+  emailVerifiedAt?: Date | null;
+  emailVerificationTokenHash?: string | null;
+  emailVerificationExpiresAt?: Date | null;
+  emailVerificationSentAt?: Date | null;
+  emailVerificationResendCount?: number;
   updatedAt: Date;
 }>;
 
@@ -45,6 +50,18 @@ function asResellerStatus(value: unknown): ResellerStatus {
   throw new Error("Unexpected reseller status from persistence layer.");
 }
 
+function parseNullableDate(value: unknown, fieldName: string): Date | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new Error("Invalid " + fieldName + " from persistence layer.");
+  }
+
+  return new Date(value);
+}
+
 function parseUserRow(value: unknown): AuthUserRecord {
   if (typeof value !== "object" || value === null) {
     throw new Error("Invalid auth user payload from persistence layer.");
@@ -57,10 +74,15 @@ function parseUserRow(value: unknown): AuthUserRecord {
     typeof row.email !== "string" ||
     typeof row.password_hash !== "string" ||
     typeof row.is_reseller_active !== "boolean" ||
+    typeof row.email_verification_resend_count !== "number" ||
     typeof row.created_at !== "string" ||
     typeof row.updated_at !== "string"
   ) {
     throw new Error("Missing required auth user fields from persistence layer.");
+  }
+
+  if (row.email_verification_token_hash !== null && typeof row.email_verification_token_hash !== "string") {
+    throw new Error("Invalid email verification token hash from persistence layer.");
   }
 
   return {
@@ -70,6 +92,11 @@ function parseUserRow(value: unknown): AuthUserRecord {
     role: asAuthUserRole(row.role),
     isResellerActive: row.is_reseller_active,
     resellerStatus: asResellerStatus(row.reseller_status),
+    emailVerifiedAt: parseNullableDate(row.email_verified_at, "email verified timestamp"),
+    emailVerificationTokenHash: row.email_verification_token_hash,
+    emailVerificationExpiresAt: parseNullableDate(row.email_verification_expires_at, "email verification expiry"),
+    emailVerificationSentAt: parseNullableDate(row.email_verification_sent_at, "email verification sent timestamp"),
+    emailVerificationResendCount: row.email_verification_resend_count,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at)
   };
@@ -90,12 +117,11 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 function extractErrorMessage(payload: unknown): string {
-  if (typeof payload !== "object" || payload === null) {
-    return "Persistence layer request failed.";
+  if (typeof payload === "object" && payload !== null && "message" in payload && typeof (payload as { message: unknown }).message === "string") {
+    return (payload as { message: string }).message;
   }
 
-  const value = payload as Record<string, unknown>;
-  return typeof value.message === "string" ? value.message : "Persistence layer request failed.";
+  return "Persistence layer request failed.";
 }
 
 export class SupabaseAuthRepository implements AuthRepository {
@@ -110,7 +136,7 @@ export class SupabaseAuthRepository implements AuthRepository {
   }
 
   private selectColumns() {
-    return "id,email,password_hash,role,is_reseller_active,reseller_status,created_at,updated_at";
+    return "id,email,password_hash,role,is_reseller_active,reseller_status,email_verified_at,email_verification_token_hash,email_verification_expires_at,email_verification_sent_at,email_verification_resend_count,created_at,updated_at";
   }
 
   private async request(path: string, init: RequestInit = {}): Promise<Response> {
@@ -150,6 +176,11 @@ export class SupabaseAuthRepository implements AuthRepository {
           role: input.role,
           is_reseller_active: false,
           reseller_status: "none",
+          email_verified_at: null,
+          email_verification_token_hash: null,
+          email_verification_expires_at: null,
+          email_verification_sent_at: null,
+          email_verification_resend_count: 0,
           metadata: {},
           created_at: input.createdAt.toISOString(),
           updated_at: input.updatedAt.toISOString()
@@ -246,6 +277,26 @@ export class SupabaseAuthRepository implements AuthRepository {
       body.reseller_status = input.resellerStatus;
     }
 
+    if (input.emailVerifiedAt !== undefined) {
+      body.email_verified_at = input.emailVerifiedAt?.toISOString() ?? null;
+    }
+
+    if (input.emailVerificationTokenHash !== undefined) {
+      body.email_verification_token_hash = input.emailVerificationTokenHash;
+    }
+
+    if (input.emailVerificationExpiresAt !== undefined) {
+      body.email_verification_expires_at = input.emailVerificationExpiresAt?.toISOString() ?? null;
+    }
+
+    if (input.emailVerificationSentAt !== undefined) {
+      body.email_verification_sent_at = input.emailVerificationSentAt?.toISOString() ?? null;
+    }
+
+    if (input.emailVerificationResendCount !== undefined) {
+      body.email_verification_resend_count = input.emailVerificationResendCount;
+    }
+
     const response = await this.request(
       "/rest/v1/" + this.tableName() + "?id=eq." + encodeURIComponent(userId) + "&select=" + this.selectColumns(),
       {
@@ -292,6 +343,11 @@ export class InMemoryAuthRepository implements AuthRepository {
       role: input.role,
       isResellerActive: false,
       resellerStatus: "none",
+      emailVerifiedAt: null,
+      emailVerificationTokenHash: null,
+      emailVerificationExpiresAt: null,
+      emailVerificationSentAt: null,
+      emailVerificationResendCount: 0,
       createdAt: input.createdAt,
       updatedAt: input.updatedAt
     };
@@ -326,6 +382,11 @@ export class InMemoryAuthRepository implements AuthRepository {
       role: input.role ?? existingUser.role,
       isResellerActive: input.isResellerActive ?? existingUser.isResellerActive,
       resellerStatus: input.resellerStatus ?? existingUser.resellerStatus,
+      emailVerifiedAt: input.emailVerifiedAt === undefined ? existingUser.emailVerifiedAt : input.emailVerifiedAt,
+      emailVerificationTokenHash: input.emailVerificationTokenHash === undefined ? existingUser.emailVerificationTokenHash : input.emailVerificationTokenHash,
+      emailVerificationExpiresAt: input.emailVerificationExpiresAt === undefined ? existingUser.emailVerificationExpiresAt : input.emailVerificationExpiresAt,
+      emailVerificationSentAt: input.emailVerificationSentAt === undefined ? existingUser.emailVerificationSentAt : input.emailVerificationSentAt,
+      emailVerificationResendCount: input.emailVerificationResendCount ?? existingUser.emailVerificationResendCount,
       updatedAt: input.updatedAt
     };
 

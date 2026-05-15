@@ -10,6 +10,8 @@ export interface OrderRepository {
   createOrder(input: CreateOrderRecordInput): Promise<OrderRecord>;
   findOrderById(orderId: string): Promise<OrderRecord | null>;
   findOrderByInvoiceCode(invoiceCode: string): Promise<OrderRecord | null>;
+  listOrdersByUserId(userId: string, limit: number): Promise<OrderRecord[]>;
+  listRecentOrders(limit: number): Promise<OrderRecord[]>;
   updateOrderStatus(orderId: string, status: OrderStatus, updatedAt: Date): Promise<OrderRecord>;
   createStatusHistory(input: CreateStatusHistoryInput): Promise<StatusHistoryRecord>;
   findStatusHistoryByOrderId(orderId: string): Promise<StatusHistoryRecord[]>;
@@ -279,6 +281,38 @@ export class SupabaseOrderRepository implements OrderRepository {
     return parseOrderRow(payload[0]);
   }
 
+  async listOrdersByUserId(userId: string, limit: number): Promise<OrderRecord[]> {
+    const response = await this.request(
+      "/rest/v1/orders?user_id=eq." + encodeURIComponent(userId) + "&select=" + ORDER_SELECT + "&order=created_at.desc&limit=" + limit,
+      {
+        method: "GET"
+      }
+    );
+
+    const payload = await readJson(response);
+    if (!response.ok) {
+      throw new Error(extractErrorMessage(payload));
+    }
+
+    return Array.isArray(payload) ? payload.map(parseOrderRow) : [];
+  }
+
+  async listRecentOrders(limit: number): Promise<OrderRecord[]> {
+    const response = await this.request(
+      "/rest/v1/orders?select=" + ORDER_SELECT + "&order=created_at.desc&limit=" + limit,
+      {
+        method: "GET"
+      }
+    );
+
+    const payload = await readJson(response);
+    if (!response.ok) {
+      throw new Error(extractErrorMessage(payload));
+    }
+
+    return Array.isArray(payload) ? payload.map(parseOrderRow) : [];
+  }
+
   async updateOrderStatus(orderId: string, status: OrderStatus, updatedAt: Date): Promise<OrderRecord> {
     const response = await this.request(
       `/rest/v1/orders?id=eq.${encodeURIComponent(orderId)}&select=${ORDER_SELECT}`,
@@ -407,6 +441,19 @@ export class InMemoryOrderRepository implements OrderRepository {
     const orderId = this.orderNumberToId.get(invoiceCode);
 
     return orderId === undefined ? null : this.ordersById.get(orderId) ?? null;
+  }
+
+  async listOrdersByUserId(userId: string, limit: number): Promise<OrderRecord[]> {
+    return Array.from(this.ordersById.values())
+      .filter((order) => order.userId === userId)
+      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+      .slice(0, limit);
+  }
+
+  async listRecentOrders(limit: number): Promise<OrderRecord[]> {
+    return Array.from(this.ordersById.values())
+      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+      .slice(0, limit);
   }
 
   async updateOrderStatus(orderId: string, status: OrderStatus, updatedAt: Date): Promise<OrderRecord> {

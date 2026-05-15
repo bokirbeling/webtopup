@@ -26,6 +26,13 @@ export class AccountUserNotFoundError extends Error {
   }
 }
 
+export class AccountEmailUnverifiedError extends Error {
+  constructor() {
+    super("Email verification is required before requesting reseller access.");
+    this.name = "AccountEmailUnverifiedError";
+  }
+}
+
 function toPublicUser(user: AuthUser): AuthUser {
   return {
     id: user.id,
@@ -33,6 +40,7 @@ function toPublicUser(user: AuthUser): AuthUser {
     role: user.role,
     isResellerActive: user.isResellerActive,
     resellerStatus: user.resellerStatus,
+    emailVerifiedAt: user.emailVerifiedAt,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt
   };
@@ -66,6 +74,10 @@ export function createAccountService(options: AccountServiceOptions): AccountSer
 
       if (user.role === "seller" || user.resellerStatus === "approved") {
         return toPublicUser(user);
+      }
+
+      if (user.emailVerifiedAt === null) {
+        throw new AccountEmailUnverifiedError();
       }
 
       return toPublicUser(

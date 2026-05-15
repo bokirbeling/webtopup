@@ -1,18 +1,33 @@
-import { createHash } from "node:crypto";
-
+import {
+  buildDigiflazzTopupRequest,
+  type DigiflazzBuyerRequest,
+  missingDigiflazzBuyerCredentialFields,
+  parseDigiflazzBuyerResponse,
+  requireDigiflazzBuyerCredentials
+} from "../digiflazz/buyer-client";
 import { OrderTransitionError, type OrderService } from "../order/order.service";
 import { type FulfillmentRepository } from "./fulfillment.repository";
 import {
   type DigiflazzCallbackPayload,
+  type FulfillmentOrderLookup,
   type FulfillmentProviderMode,
+  type FulfillmentRecord,
   type FulfillmentStatus
 } from "./fulfillment.types";
+
+type DigiflazzTopupOptions = Readonly<{
+  testing?: boolean;
+  maxPrice?: number;
+  callbackUrl?: string;
+  allowDot?: boolean;
+}>;
 
 type DigiflazzConfig = Readonly<{
   username: string | null;
   apiKey: string | null;
   apiBaseUrl: string;
   nodeEnv: "development" | "test" | "production";
+  topupOptions?: DigiflazzTopupOptions;
 }>;
 
 type FulfillmentServiceOptions = Readonly<{
@@ -23,19 +38,34 @@ type FulfillmentServiceOptions = Readonly<{
   clock?: () => Date;
 }>;
 
+type FulfillmentResult = Readonly<{
+  fulfillmentId: string;
+  orderId: string;
+  status: FulfillmentStatus;
+  providerReference: string;
+  providerMode: FulfillmentProviderMode;
+}>;
+
 type TriggerFulfillmentInput = Readonly<{
   orderId: string;
 }>;
 
+type DigiflazzCallbackContext = Readonly<{
+  eventType?: string;
+  userAgent?: string;
+}>;
+
+type LiveTopupResult = Readonly<{
+  requestPayload: DigiflazzBuyerRequest;
+  responsePayload: Record<string, unknown>;
+  responseData: Record<string, unknown>;
+  status: FulfillmentStatus;
+}>;
+
 export type FulfillmentService = Readonly<{
-  triggerPaidOrderFulfillment(input: TriggerFulfillmentInput): Promise<{
-    fulfillmentId: string;
-    orderId: string;
-    status: FulfillmentStatus;
-    providerReference: string;
-    providerMode: FulfillmentProviderMode;
-  }>;
-  handleDigiflazzCallback(payload: DigiflazzCallbackPayload): Promise<{
+  triggerPaidOrderFulfillment(input: TriggerFulfillmentInput): Promise<FulfillmentResult>;
+  recheckPendingFulfillment(input: TriggerFulfillmentInput): Promise<FulfillmentResult>;
+  handleDigiflazzCallback(payload: DigiflazzCallbackPayload, context?: DigiflazzCallbackContext): Promise<{
     code: "PROCESSED" | "DUPLICATE" | "IGNORED";
     message: string;
   }>;
@@ -57,7 +87,7 @@ function requireString(value: unknown): string | null {
 }
 
 function isLiveDigiflazzConfigured(config: DigiflazzConfig): boolean {
-  return config.username !== null && config.username.trim() !== "" && config.apiKey !== null && config.apiKey.trim() !== "";
+  return missingDigiflazzBuyerCredentialFields(config).length === 0;
 }
 
 function resolveProviderMode(config: DigiflazzConfig): FulfillmentProviderMode {
@@ -66,14 +96,10 @@ function resolveProviderMode(config: DigiflazzConfig): FulfillmentProviderMode {
   }
 
   if (config.nodeEnv === "production") {
-    throw new FulfillmentValidationError("Digiflazz credentials are required in production.");
+    throw new FulfillmentValidationError("Digiflazz credentials are required in production. Missing: " + missingDigiflazzBuyerCredentialFields(config).join(", ") + ".");
   }
 
   return "mock";
-}
-
-function signDigiflazz(username: string, apiKey: string, refId: string): string {
-  return createHash("md5").update(username + apiKey + refId).digest("hex");
 }
 
 function mapDigiflazzStatus(rawStatus: string | null): FulfillmentStatus {
@@ -85,6 +111,10 @@ function mapDigiflazzStatus(rawStatus: string | null): FulfillmentStatus {
     return "failed";
   }
   return "processing";
+}
+
+function isTerminalStatus(status: FulfillmentStatus): boolean {
+  return status === "success" || status === "failed";
 }
 
 function extractCallbackData(payload: DigiflazzCallbackPayload): Record<string, unknown> {
@@ -112,19 +142,6 @@ async function readJson(response: Response): Promise<unknown> {
   return JSON.parse(bodyText) as unknown;
 }
 
-function digiflazzPayloadFor(order: {
-  productCode: string;
-  customerRef: string | null;
-}, username: string, apiKey: string, refId: string): Record<string, unknown> {
-  return {
-    username,
-    buyer_sku_code: order.productCode,
-    customer_no: order.customerRef ?? "",
-    ref_id: refId,
-    sign: signDigiflazz(username, apiKey, refId)
-  };
-}
-
 function modeResponsePayload(mode: FulfillmentProviderMode, payload: Record<string, unknown>): Record<string, unknown> {
   return {
     ...payload,
@@ -132,10 +149,83 @@ function modeResponsePayload(mode: FulfillmentProviderMode, payload: Record<stri
   };
 }
 
+function providerModeFromFulfillment(fulfillment: FulfillmentRecord, fallback: FulfillmentProviderMode): FulfillmentProviderMode {
+  return fulfillment.responsePayload.provider_mode === "live" || fulfillment.responsePayload.provider_mode === "mock"
+    ? fulfillment.responsePayload.provider_mode
+    : fallback;
+}
+
+function buildWebhookEventPayload(payload: DigiflazzCallbackPayload, data: Record<string, unknown>, context: DigiflazzCallbackContext | undefined): Record<string, unknown> {
+  return {
+    ...toRecord(payload),
+    metadata: {
+      digiflazz_event: context?.eventType ?? "unknown",
+      user_agent: context?.userAgent ?? null,
+      rc: requireString(data.rc),
+      message: requireString(data.message),
+      status: requireString(data.status)
+    }
+  };
+}
+
 export function createFulfillmentService(options: FulfillmentServiceOptions): FulfillmentService {
   const fetchImpl = options.fetchImpl ?? fetch;
   const clock = options.clock ?? (() => new Date());
   const provider = "digiflazz";
+
+  async function sendLiveTopup(order: FulfillmentOrderLookup, providerReference: string): Promise<LiveTopupResult> {
+    const credentials = requireDigiflazzBuyerCredentials(options.digiflazzConfig);
+    const requestPayload = buildDigiflazzTopupRequest({
+      credentials,
+      buyerSkuCode: order.productCode,
+      customerNo: order.customerRef ?? "",
+      refId: providerReference,
+      testing: options.digiflazzConfig.topupOptions?.testing,
+      maxPrice: options.digiflazzConfig.topupOptions?.maxPrice,
+      callbackUrl: options.digiflazzConfig.topupOptions?.callbackUrl,
+      allowDot: options.digiflazzConfig.topupOptions?.allowDot
+    });
+    const response = await fetchImpl(options.digiflazzConfig.apiBaseUrl + "/v1/transaction", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestPayload)
+    });
+    const rawResponsePayload = await readJson(response);
+    if (!response.ok) {
+      throw new Error("Digiflazz transaction request failed.");
+    }
+    const parsedResponse = parseDigiflazzBuyerResponse(rawResponsePayload);
+    const responsePayload = toRecord(parsedResponse.raw);
+
+    return {
+      requestPayload,
+      responsePayload,
+      responseData: toRecord(parsedResponse.data),
+      status: mapDigiflazzStatus(parsedResponse.status)
+    };
+  }
+
+  async function transitionTerminalOrderStatus(fulfillment: FulfillmentRecord, status: FulfillmentStatus, metadata: Record<string, unknown>, note: string, createdBy: string): Promise<boolean> {
+    if (!isTerminalStatus(status)) {
+      return true;
+    }
+
+    try {
+      await options.orderService.transitionOrderStatus({
+        orderId: fulfillment.orderId,
+        toStatus: status === "success" ? "success" : "failed",
+        note,
+        metadata,
+        createdBy
+      });
+      return true;
+    } catch (error) {
+      if (error instanceof OrderTransitionError) {
+        return false;
+      }
+      throw error;
+    }
+  }
 
   return {
     async triggerPaidOrderFulfillment(input: TriggerFulfillmentInput) {
@@ -160,7 +250,7 @@ export function createFulfillmentService(options: FulfillmentServiceOptions): Fu
           orderId: existing.orderId,
           status: existing.status,
           providerReference,
-          providerMode: (existing.responsePayload.provider_mode as FulfillmentProviderMode | undefined) ?? providerMode
+          providerMode: providerModeFromFulfillment(existing, providerMode)
         };
       }
 
@@ -203,41 +293,70 @@ export function createFulfillmentService(options: FulfillmentServiceOptions): Fu
         return { fulfillmentId: fulfillment.id, orderId: order.id, status: fulfillment.status, providerReference, providerMode: "mock" };
       }
 
-      const username = options.digiflazzConfig.username;
-      const apiKey = options.digiflazzConfig.apiKey;
-      if (username === null || apiKey === null) {
-        throw new FulfillmentValidationError("Digiflazz credentials are required for live fulfillment.");
-      }
-      const requestPayload = digiflazzPayloadFor(order, username, apiKey, providerReference);
-      const response = await fetchImpl(options.digiflazzConfig.apiBaseUrl + "/v1/transaction", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestPayload)
-      });
-      const responsePayload = toRecord(await readJson(response));
-      if (!response.ok) {
-        throw new Error("Digiflazz transaction request failed.");
-      }
-      const responseData = toRecord(responsePayload.data ?? responsePayload);
-      const status = mapDigiflazzStatus(requireString(responseData.status));
+      const topup = await sendLiveTopup(order, providerReference);
       const fulfillment = await options.fulfillmentRepository.createFulfillment({
         orderId: order.id,
         provider,
         attemptNo: 1,
-        providerFulfillmentId: requireString(responseData.trx_id),
+        providerFulfillmentId: requireString(topup.responseData.trx_id),
         providerReference,
-        status,
-        serialNumber: requireString(responseData.sn),
-        requestPayload,
-        responsePayload: modeResponsePayload("live", responsePayload),
-        processedAt: status === "success" || status === "failed" ? now : null,
+        status: topup.status,
+        serialNumber: requireString(topup.responseData.sn),
+        requestPayload: topup.requestPayload,
+        responsePayload: modeResponsePayload("live", topup.responsePayload),
+        processedAt: isTerminalStatus(topup.status) ? now : null,
         createdAt: now,
         updatedAt: now
       });
       return { fulfillmentId: fulfillment.id, orderId: order.id, status: fulfillment.status, providerReference, providerMode: "live" };
     },
 
-    async handleDigiflazzCallback(payload: DigiflazzCallbackPayload) {
+    async recheckPendingFulfillment(input: TriggerFulfillmentInput) {
+      const now = clock();
+      const order = await options.fulfillmentRepository.findOrderById(input.orderId);
+      if (!order) {
+        throw new FulfillmentValidationError("Order " + input.orderId + " was not found.");
+      }
+      if (order.provider !== provider) {
+        throw new FulfillmentValidationError("Order " + input.orderId + " uses unsupported fulfillment provider " + order.provider + ".");
+      }
+
+      const existing = await options.fulfillmentRepository.findLatestFulfillmentByOrderId(order.id);
+      if (!existing || existing.provider !== provider || existing.providerReference === null) {
+        throw new FulfillmentValidationError("Order " + order.id + " has no Digiflazz fulfillment to recheck.");
+      }
+
+      const providerMode = providerModeFromFulfillment(existing, resolveProviderMode(options.digiflazzConfig));
+      if (providerMode !== "live") {
+        return { fulfillmentId: existing.id, orderId: existing.orderId, status: existing.status, providerReference: existing.providerReference, providerMode };
+      }
+      if (existing.status !== "processing") {
+        return { fulfillmentId: existing.id, orderId: existing.orderId, status: existing.status, providerReference: existing.providerReference, providerMode };
+      }
+
+      const topup = await sendLiveTopup(order, existing.providerReference);
+      const updated = await options.fulfillmentRepository.updateFulfillmentStatus({
+        fulfillmentId: existing.id,
+        providerFulfillmentId: requireString(topup.responseData.trx_id) ?? existing.providerFulfillmentId,
+        status: topup.status,
+        serialNumber: requireString(topup.responseData.sn) ?? existing.serialNumber,
+        responsePayload: modeResponsePayload("live", topup.responsePayload),
+        processedAt: isTerminalStatus(topup.status) ? now : null,
+        updatedAt: now
+      });
+
+      await transitionTerminalOrderStatus(
+        updated,
+        topup.status,
+        { provider, fulfillmentId: updated.id, providerReference: existing.providerReference, transactionId: updated.providerFulfillmentId, recheck: true },
+        "digiflazz_recheck_" + topup.status,
+        "fulfillment_recheck"
+      );
+
+      return { fulfillmentId: updated.id, orderId: updated.orderId, status: updated.status, providerReference: existing.providerReference, providerMode };
+    },
+
+    async handleDigiflazzCallback(payload: DigiflazzCallbackPayload, context?: DigiflazzCallbackContext) {
       const now = clock();
       const data = extractCallbackData(payload);
       const refId = requireString(data.ref_id);
@@ -249,10 +368,10 @@ export function createFulfillmentService(options: FulfillmentServiceOptions): Fu
       const registration = await options.fulfillmentRepository.registerWebhookEvent({
         provider,
         eventKey,
-        eventType: requireString(data.status) ?? "unknown",
+        eventType: context?.eventType ?? "unknown",
         orderId: fulfillment?.orderId ?? null,
         fulfillmentId: fulfillment?.id ?? null,
-        payload: toRecord(payload),
+        payload: buildWebhookEventPayload(payload, data, context),
         receivedAt: now
       });
       if (registration.duplicate) {
@@ -270,26 +389,20 @@ export function createFulfillmentService(options: FulfillmentServiceOptions): Fu
         status,
         serialNumber: requireString(data.sn) ?? fulfillment.serialNumber,
         responsePayload: modeResponsePayload("live", data),
-        processedAt: status === "success" || status === "failed" ? now : null,
+        processedAt: isTerminalStatus(status) ? now : null,
         updatedAt: now
       });
 
-      if (status === "success" || status === "failed") {
-        try {
-          await options.orderService.transitionOrderStatus({
-            orderId: updated.orderId,
-            toStatus: status === "success" ? "success" : "failed",
-            note: "digiflazz_callback_" + status,
-            metadata: { provider, webhookEventId: registration.event.id, fulfillmentId: updated.id, providerReference: refId, transactionId: updated.providerFulfillmentId },
-            createdBy: "digiflazz_callback"
-          });
-        } catch (error) {
-          if (error instanceof OrderTransitionError) {
-            await options.fulfillmentRepository.updateWebhookEventState({ eventId: registration.event.id, processingState: "ignored", processedAt: now, errorMessage: error.message });
-            return { code: "IGNORED" as const, message: "Callback did not mutate order due to monotonic transition guard." };
-          }
-          throw error;
-        }
+      const transitioned = await transitionTerminalOrderStatus(
+        updated,
+        status,
+        { provider, webhookEventId: registration.event.id, fulfillmentId: updated.id, providerReference: refId, transactionId: updated.providerFulfillmentId },
+        "digiflazz_callback_" + status,
+        "digiflazz_callback"
+      );
+      if (!transitioned) {
+        await options.fulfillmentRepository.updateWebhookEventState({ eventId: registration.event.id, processingState: "ignored", processedAt: now, errorMessage: "Order transition was rejected by monotonic transition guard." });
+        return { code: "IGNORED" as const, message: "Callback did not mutate order due to monotonic transition guard." };
       }
 
       await options.fulfillmentRepository.updateWebhookEventState({ eventId: registration.event.id, processingState: "processed", processedAt: now, errorMessage: null });

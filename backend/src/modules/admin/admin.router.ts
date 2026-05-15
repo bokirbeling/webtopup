@@ -1,7 +1,7 @@
 import { type Response, Router } from "express";
 
 import { toUserResponse } from "../account/account.router";
-import { AdminUserNotFoundError, type AdminService } from "./admin.service";
+import { AdminEmailUnverifiedError, AdminUserNotFoundError, type AdminService } from "./admin.service";
 
 export type AdminRouterDependencies = Readonly<{
   adminService: AdminService;
@@ -19,6 +19,16 @@ function sendNotFound(response: Response) {
 function handleAdminError(error: unknown, response: Response) {
   if (error instanceof AdminUserNotFoundError) {
     sendNotFound(response);
+    return;
+  }
+
+  if (error instanceof AdminEmailUnverifiedError) {
+    response.status(403).json({
+      error: {
+        code: "EMAIL_VERIFICATION_REQUIRED",
+        message: "Email verification is required before approving reseller access."
+      }
+    });
     return;
   }
 

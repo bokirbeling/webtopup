@@ -22,11 +22,22 @@ export type BackendEnv = Readonly<{
   digiflazzUsername: string | null;
   digiflazzApiKey: string | null;
   digiflazzApiBaseUrl: string;
+  digiflazzWebhookSecret: string | null;
+  digiflazzTopupTesting: boolean | undefined;
+  digiflazzTopupMaxPrice: number | undefined;
+  digiflazzTopupCallbackUrl: string | undefined;
+  digiflazzTopupAllowDot: boolean | undefined;
   jwtSecret: string;
   jwtExpiresIn: string;
   passwordHashCost: number;
   corsAllowedOrigins: readonly string[];
   adminBootstrapToken: string | null;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpUser: string | null;
+  smtpPassword: string | null;
+  smtpFromEmail: string | null;
+  smtpFromName: string | null;
 }>;
 
 function isAllowedNodeEnv(value: string): value is NodeEnv {
@@ -146,6 +157,82 @@ function parseAdminBootstrapToken(rawValue: string | undefined, nodeEnv: NodeEnv
   return value;
 }
 
+function parseOptionalBoolean(rawValue: string | undefined, keyName: string): boolean | undefined {
+  const value = rawValue?.trim().toLowerCase() ?? "";
+
+  if (value === "") {
+    return undefined;
+  }
+  if (value === "true") {
+    return true;
+  }
+  if (value === "false") {
+    return false;
+  }
+
+  throw new Error("[config] Invalid " + keyName + ". Expected true or false.");
+}
+
+function parseOptionalPositiveInteger(rawValue: string | undefined, keyName: string): number | undefined {
+  const value = rawValue?.trim() ?? "";
+
+  if (value === "") {
+    return undefined;
+  }
+
+  const parsedValue = Number(value);
+  if (!Number.isInteger(parsedValue) || parsedValue < 1) {
+    throw new Error("[config] Invalid " + keyName + ". Expected a positive integer.");
+  }
+
+  return parsedValue;
+}
+
+function parseOptionalPort(rawValue: string | undefined, keyName: string): number | null {
+  const value = rawValue?.trim() ?? "";
+
+  if (value === "") {
+    return null;
+  }
+
+  const parsedValue = Number(value);
+  if (!Number.isInteger(parsedValue) || parsedValue < 1 || parsedValue > 65535) {
+    throw new Error("[config] Invalid " + keyName + ". Expected an integer between 1 and 65535.");
+  }
+
+  return parsedValue;
+}
+
+function parseOptionalEmail(rawValue: string | undefined, keyName: string): string | null {
+  const value = rawValue?.trim() ?? "";
+
+  if (value === "") {
+    return null;
+  }
+
+  if (!value.includes("@")) {
+    throw new Error("[config] Invalid " + keyName + ". Expected an email address.");
+  }
+
+  return value;
+}
+
+function parseOptionalText(rawValue: string | undefined): string | null {
+  const value = rawValue?.trim() ?? "";
+  return value === "" ? null : value;
+}
+
+function parseOptionalHttpUrl(rawValue: string | undefined, keyName: string): string | undefined {
+  const value = rawValue?.trim() ?? "";
+
+  if (value === "") {
+    return undefined;
+  }
+
+  return parseHttpUrl(value, keyName);
+}
+
+
 export function readEnv(rawEnv: NodeJS.ProcessEnv = process.env): BackendEnv {
   const missingKeys = REQUIRED_ENV_KEYS.filter((key) => {
     const value = rawEnv[key];
@@ -187,6 +274,7 @@ export function readEnv(rawEnv: NodeJS.ProcessEnv = process.env): BackendEnv {
   const digiflazzApiBaseUrlRaw = rawEnv.DIGIFLAZZ_API_BASE_URL ?? "https://api.digiflazz.com";
   const digiflazzUsernameRaw = rawEnv.DIGIFLAZZ_USERNAME?.trim() ?? "";
   const digiflazzApiKeyRaw = rawEnv.DIGIFLAZZ_API_KEY?.trim() ?? "";
+  const digiflazzWebhookSecretRaw = rawEnv.DIGIFLAZZ_WEBHOOK_SECRET?.trim() ?? "";
 
   return {
     nodeEnv: nodeEnvRaw,
@@ -199,11 +287,22 @@ export function readEnv(rawEnv: NodeJS.ProcessEnv = process.env): BackendEnv {
     digiflazzUsername: digiflazzUsernameRaw === "" ? null : digiflazzUsernameRaw,
     digiflazzApiKey: digiflazzApiKeyRaw === "" ? null : digiflazzApiKeyRaw,
     digiflazzApiBaseUrl: parseHttpUrl(digiflazzApiBaseUrlRaw, "DIGIFLAZZ_API_BASE_URL"),
+    digiflazzWebhookSecret: digiflazzWebhookSecretRaw === "" ? null : digiflazzWebhookSecretRaw,
+    digiflazzTopupTesting: parseOptionalBoolean(rawEnv.DIGIFLAZZ_TOPUP_TESTING, "DIGIFLAZZ_TOPUP_TESTING"),
+    digiflazzTopupMaxPrice: parseOptionalPositiveInteger(rawEnv.DIGIFLAZZ_TOPUP_MAX_PRICE, "DIGIFLAZZ_TOPUP_MAX_PRICE"),
+    digiflazzTopupCallbackUrl: parseOptionalHttpUrl(rawEnv.DIGIFLAZZ_TOPUP_CALLBACK_URL, "DIGIFLAZZ_TOPUP_CALLBACK_URL"),
+    digiflazzTopupAllowDot: parseOptionalBoolean(rawEnv.DIGIFLAZZ_TOPUP_ALLOW_DOT, "DIGIFLAZZ_TOPUP_ALLOW_DOT"),
     jwtSecret: parseJwtSecret(rawEnv.JWT_SECRET, nodeEnvRaw),
     jwtExpiresIn: parseJwtExpiresIn(rawEnv.JWT_EXPIRES_IN),
     passwordHashCost: parsePasswordHashCost(rawEnv.PASSWORD_HASH_COST, nodeEnvRaw),
     corsAllowedOrigins: parseCorsAllowedOrigins(rawEnv.CORS_ALLOWED_ORIGINS),
-    adminBootstrapToken: parseAdminBootstrapToken(rawEnv.ADMIN_BOOTSTRAP_TOKEN, nodeEnvRaw)
+    adminBootstrapToken: parseAdminBootstrapToken(rawEnv.ADMIN_BOOTSTRAP_TOKEN, nodeEnvRaw),
+    smtpHost: parseOptionalText(rawEnv.SMTP_HOST),
+    smtpPort: parseOptionalPort(rawEnv.SMTP_PORT, "SMTP_PORT"),
+    smtpUser: parseOptionalText(rawEnv.SMTP_USER),
+    smtpPassword: parseOptionalText(rawEnv.SMTP_PASSWORD),
+    smtpFromEmail: parseOptionalEmail(rawEnv.SMTP_FROM_EMAIL, "SMTP_FROM_EMAIL"),
+    smtpFromName: parseOptionalText(rawEnv.SMTP_FROM_NAME)
   };
 }
 

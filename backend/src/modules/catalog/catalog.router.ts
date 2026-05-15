@@ -3,6 +3,7 @@ import { type Request, type Response, Router } from "express";
 import { readBearerToken, sendUnauthorized, type AuthenticatedRequest } from "../auth/auth.middleware";
 import { InvalidAuthTokenError, type AuthService } from "../auth/auth.service";
 import { type AuthUserRole } from "../auth/auth.types";
+import { DigiflazzPriceListSyncRateLimitError, type DigiflazzPriceListSyncResult } from "./digiflazz-price-sync.service";
 import {
   CatalogProductInactiveError,
   CatalogProductNotFoundError,
@@ -144,6 +145,17 @@ function pricedProductResponse(pricedProduct: PricedProduct) {
       markup_fixed: pricedProduct.pricing.markupFixed,
       markup_percentage: pricedProduct.pricing.markupPercentage
     }
+  };
+}
+
+function priceListSyncResponse(result: DigiflazzPriceListSyncResult) {
+  return {
+    synced_at: result.syncedAt.toISOString(),
+    source: result.source,
+    product_count: result.productCount,
+    active_count: result.activeCount,
+    inactive_count: result.inactiveCount,
+    products: result.products.map(productResponse)
   };
 }
 
@@ -398,6 +410,28 @@ export function createCatalogRouter(dependencies: CatalogRouterDependencies) {
 
 export function createCatalogAdminRouter(dependencies: CatalogAdminRouterDependencies) {
   const adminRouter = Router();
+
+
+  adminRouter.post("/digiflazz/price-list/sync", async (_request, response, next) => {
+    try {
+      const result = await dependencies.catalogService.syncDigiflazzPrepaidPriceList();
+      response.status(200).json({ sync: priceListSyncResponse(result) });
+    } catch (error) {
+      if (error instanceof DigiflazzPriceListSyncRateLimitError) {
+        response.status(429).json({
+          error: {
+            code: "DIGIFLAZZ_PRICE_LIST_SYNC_RATE_LIMITED",
+            message: "Digiflazz prepaid price-list sync was requested too soon.",
+            retry_at: error.retryAt.toISOString(),
+            remaining_ms: error.remainingMs
+          }
+        });
+        return;
+      }
+
+      next(error);
+    }
+  });
 
   adminRouter.get("/products", async (_request, response) => {
     const products = await dependencies.catalogService.listAdminProducts();

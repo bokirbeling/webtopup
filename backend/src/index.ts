@@ -1,5 +1,7 @@
 import { createApp } from "./app";
-import { readEnv } from "./config/env";
+import { readEnv, type BackendEnv } from "./config/env";
+import { createSmtpEmailVerificationSender } from "./modules/auth/email-verification.sender";
+import { type EmailVerificationSender } from "./modules/auth/auth.service";
 
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -7,6 +9,35 @@ function toErrorMessage(error: unknown): string {
   }
 
   return "Unknown startup error.";
+}
+
+function createEmailVerificationSender(env: BackendEnv): EmailVerificationSender | undefined {
+  const values = [env.smtpHost, env.smtpPort, env.smtpUser, env.smtpPassword, env.smtpFromEmail, env.smtpFromName];
+  const configuredValues = values.filter((value) => value !== null);
+
+  if (configuredValues.length === 0) {
+    return undefined;
+  }
+
+  if (
+    env.smtpHost === null ||
+    env.smtpPort === null ||
+    env.smtpUser === null ||
+    env.smtpPassword === null ||
+    env.smtpFromEmail === null ||
+    env.smtpFromName === null
+  ) {
+    throw new Error("[config] SMTP sender config is incomplete. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM_EMAIL, and SMTP_FROM_NAME together.");
+  }
+
+  return createSmtpEmailVerificationSender({
+    host: env.smtpHost,
+    port: env.smtpPort,
+    user: env.smtpUser,
+    password: env.smtpPassword,
+    fromEmail: env.smtpFromEmail,
+    fromName: env.smtpFromName
+  });
 }
 
 function bootstrap() {
@@ -22,6 +53,7 @@ function bootstrap() {
       jwtExpiresIn: env.jwtExpiresIn,
       passwordHashCost: env.passwordHashCost
     },
+    emailVerificationSender: createEmailVerificationSender(env),
     midtransConfig: {
       serverKey: env.midtransServerKey,
       apiBaseUrl: env.midtransApiBaseUrl
@@ -30,7 +62,14 @@ function bootstrap() {
       username: env.digiflazzUsername,
       apiKey: env.digiflazzApiKey,
       apiBaseUrl: env.digiflazzApiBaseUrl,
-      nodeEnv: env.nodeEnv
+      nodeEnv: env.nodeEnv,
+      webhookSecret: env.digiflazzWebhookSecret,
+      topupOptions: {
+        testing: env.digiflazzTopupTesting,
+        maxPrice: env.digiflazzTopupMaxPrice,
+        callbackUrl: env.digiflazzTopupCallbackUrl,
+        allowDot: env.digiflazzTopupAllowDot
+      }
     }
   });
   const host = "0.0.0.0";

@@ -43,6 +43,7 @@ export interface PaymentRepository {
     processedAt: Date;
     errorMessage: string | null;
   }): Promise<WebhookEventRecord>;
+  listRecentWebhookEvents(limit: number): Promise<WebhookEventRecord[]>;
 }
 
 type SupabasePaymentRepositoryOptions = Readonly<{
@@ -465,6 +466,22 @@ export class SupabasePaymentRepository implements PaymentRepository {
     };
   }
 
+  async listRecentWebhookEvents(limit: number): Promise<WebhookEventRecord[]> {
+    const response = await this.request(
+      "/rest/v1/webhook_events?select=id,provider,event_key,event_type,order_id,payment_id,payload,processing_state,received_at,processed_at,error_message&order=received_at.desc&limit=" + limit,
+      {
+        method: "GET"
+      }
+    );
+
+    const payload = await readJson(response);
+    if (!response.ok) {
+      throw new Error(extractErrorMessage(payload));
+    }
+
+    return Array.isArray(payload) ? payload.map(parseWebhookEventRow) : [];
+  }
+
   async updateWebhookEventState(input: {
     eventId: string;
     processingState: WebhookEventRecord["processingState"];
@@ -645,6 +662,12 @@ export class InMemoryPaymentRepository implements PaymentRepository {
       event: created,
       duplicate: false
     };
+  }
+
+  async listRecentWebhookEvents(limit: number): Promise<WebhookEventRecord[]> {
+    return Array.from(this.webhookEventByProviderKey.values())
+      .sort((left, right) => right.receivedAt.getTime() - left.receivedAt.getTime())
+      .slice(0, limit);
   }
 
   async updateWebhookEventState(input: {

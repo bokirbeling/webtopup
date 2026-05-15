@@ -3,6 +3,7 @@ import request from "supertest";
 
 import { createApp } from "../../app";
 import { InMemoryAuthRepository } from "../auth/auth.repository";
+import { type EmailVerificationMessage } from "../auth/auth.service";
 
 async function registerUser(app: ReturnType<typeof createApp>, email: string) {
   const response = await request(app).post("/api/auth/register").send({
@@ -14,10 +15,33 @@ async function registerUser(app: ReturnType<typeof createApp>, email: string) {
   return response.body as { user: { id: string }; token: string };
 }
 
+async function verifyUserEmail(app: ReturnType<typeof createApp>, token: string, sentMessages: EmailVerificationMessage[]) {
+  const requestResponse = await request(app)
+    .post("/api/auth/email-verification/request")
+    .set("Authorization", "Bearer " + token)
+    .send({});
+  expect(requestResponse.status).toBe(200);
+  expect(sentMessages).toHaveLength(1);
+
+  const verifyResponse = await request(app)
+    .post("/api/auth/email-verification/verify")
+    .set("Authorization", "Bearer " + token)
+    .send({ token: sentMessages[0].token });
+  expect(verifyResponse.status).toBe(200);
+}
+
 describe("account RBAC routes", () => {
-  it("requires JWTs, enforces ownership, and prevents reseller role escalation", async () => {
+  it("requires JWTs, enforces ownership, prevents escalation, and gates reseller requests by verified email", async () => {
     const authRepository = new InMemoryAuthRepository();
-    const app = createApp({ authRepository });
+    const sentMessages: EmailVerificationMessage[] = [];
+    const app = createApp({
+      authRepository,
+      emailVerificationSender: {
+        async sendVerificationEmail(message) {
+          sentMessages.push(message);
+        }
+      }
+    });
     const owner = await registerUser(app, "owner@example.com");
     const other = await registerUser(app, "other@example.com");
 
@@ -67,6 +91,20 @@ describe("account RBAC routes", () => {
       }
     });
 
+    const unverifiedRequestResponse = await request(app)
+      .post("/api/account/reseller-request")
+      .set("Authorization", "Bearer " + owner.token)
+      .send({});
+    expect(unverifiedRequestResponse.status).toBe(403);
+    expect(unverifiedRequestResponse.body).toEqual({
+      error: {
+        code: "EMAIL_VERIFICATION_REQUIRED",
+        message: "Email verification is required before requesting reseller access."
+      }
+    });
+
+    await verifyUserEmail(app, owner.token, sentMessages);
+
     const requestResponse = await request(app)
       .post("/api/account/reseller-request")
       .set("Authorization", "Bearer " + owner.token)
@@ -77,7 +115,9 @@ describe("account RBAC routes", () => {
         id: owner.user.id,
         role: "pengguna",
         is_reseller_active: false,
-        reseller_status: "requested"
+        reseller_status: "requested",
+        email_verified: true,
+        email_verified_at: expect.any(String)
       }
     });
   });

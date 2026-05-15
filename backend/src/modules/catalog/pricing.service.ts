@@ -1,5 +1,6 @@
 import { type AuthUserRole } from "../auth/auth.types";
 import { type CatalogRepository } from "./catalog.repository";
+import { type DigiflazzPriceListSyncResult, type DigiflazzPriceListSyncService } from "./digiflazz-price-sync.service";
 import {
   type CreatePricingRuleInput,
   type CreateProductInput,
@@ -19,6 +20,7 @@ export type CatalogService = Readonly<{
   listPricingRules(): Promise<PricingRuleRecord[]>;
   createPricingRule(input: CreatePricingRuleRequest): Promise<PricingRuleRecord>;
   updatePricingRule(ruleId: string, input: UpdatePricingRuleRequest): Promise<PricingRuleRecord>;
+  syncDigiflazzPrepaidPriceList(): Promise<DigiflazzPriceListSyncResult>;
 }>;
 
 export type CreateProductRequest = Omit<CreateProductInput, "createdAt" | "updatedAt">;
@@ -28,6 +30,7 @@ export type UpdatePricingRuleRequest = Omit<UpdatePricingRuleInput, "updatedAt">
 
 type CatalogServiceOptions = Readonly<{
   repository: CatalogRepository;
+  priceListSyncService?: DigiflazzPriceListSyncService;
   clock?: () => Date;
 }>;
 
@@ -147,6 +150,14 @@ export function createCatalogService(options: CatalogServiceOptions): CatalogSer
         ...input,
         updatedAt: clock()
       });
+    },
+
+    async syncDigiflazzPrepaidPriceList(): Promise<DigiflazzPriceListSyncResult> {
+      if (options.priceListSyncService === undefined) {
+        throw new Error("Digiflazz price-list sync service is not configured.");
+      }
+
+      return options.priceListSyncService.syncPrepaidPriceList();
     }
   };
 }

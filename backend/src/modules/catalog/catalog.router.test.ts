@@ -19,7 +19,7 @@ type RegisteredUser = Readonly<{
 }>;
 
 type CatalogProductBody = Readonly<{
-  product: Readonly<{ id: string; is_active: boolean }>;
+  product: Readonly<{ id: string; sku_digiflazz: string; is_active: boolean }>;
   role_type: string;
   final_price_minor: number;
   pricing: Readonly<{
@@ -68,6 +68,57 @@ function bodyByProductId(products: readonly CatalogProductBody[], productId: str
   const productBody = products.find((item) => item.product.id === productId);
   expect(productBody).toBeDefined();
   return productBody as CatalogProductBody;
+}
+
+
+function createPriceListFetchRecorder() {
+  const requests: unknown[] = [];
+  const fetchImpl = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    requests.push(JSON.parse(String(init?.body ?? "{}")) as unknown);
+    return new Response(
+      JSON.stringify({
+        data: [
+          {
+            product_name: "Xl 100.000",
+            category: "Pulsa",
+            brand: "XL",
+            type: "Umum",
+            seller_name: "PT. ABC",
+            price: 98000,
+            buyer_sku_code: "X100",
+            buyer_product_status: true,
+            seller_product_status: true,
+            unlimited_stock: true,
+            stock: 0,
+            multi: true,
+            start_cut_off: "23:45",
+            end_cut_off: "00:15",
+            desc: "Pulsa Xl Rp 100.000"
+          },
+          {
+            product_name: "Telkomsel Pulsa 5.000",
+            category: "Pulsa",
+            brand: "TELKOMSEL",
+            type: "Umum",
+            seller_name: "PT. BCA",
+            price: 5100,
+            buyer_sku_code: "S5",
+            buyer_product_status: true,
+            seller_product_status: false,
+            unlimited_stock: false,
+            stock: 1200,
+            multi: false,
+            start_cut_off: "00:00",
+            end_cut_off: "00:00",
+            desc: "Pulsa Telkomsel Rp 5.000"
+          }
+        ]
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }) as typeof fetch;
+
+  return { fetchImpl, requests };
 }
 
 async function registerUser(app: ReturnType<typeof createApp>, email: string): Promise<RegisteredUser> {
@@ -188,6 +239,161 @@ describe("catalog and pricing routes", () => {
         message: "Product was not found."
       }
     });
+  });
+
+
+  it("syncs Digiflazz prepaid price list through admin catalog only", async () => {
+    const authRepository = new InMemoryAuthRepository();
+    const catalogRepository = new InMemoryCatalogRepository({
+      products: [
+        product({
+          id: "existing-xl",
+          skuDigiflazz: "X100",
+          name: "Old XL Name",
+          category: "old",
+          provider: "old",
+          basePriceMinor: 1,
+          isActive: false,
+          metadata: { previous: true }
+        })
+      ]
+    });
+    const priceListFetch = createPriceListFetchRecorder();
+    const app = createApp({
+      authRepository,
+      catalogRepository,
+      fetchImpl: priceListFetch.fetchImpl,
+      digiflazzConfig: {
+        username: "buyer-user",
+        apiKey: "buyer-api-key",
+        apiBaseUrl: "https://api.example.test",
+        nodeEnv: "test"
+      }
+    });
+    const admin = await registerUser(app, "catalog-sync-admin@example.com");
+    await authRepository.updateUser(admin.user.id, { role: "admin", updatedAt: createdAt });
+
+    const syncResponse = await request(app)
+      .post("/api/admin/catalog/digiflazz/price-list/sync")
+      .set("Authorization", "Bearer " + admin.token)
+      .send({});
+
+    expect(syncResponse.status).toBe(200);
+    expect(syncResponse.body).toMatchObject({
+      sync: {
+        source: "digiflazz_buyer_price_list",
+        product_count: 2,
+        active_count: 1,
+        inactive_count: 1
+      }
+    });
+    expect(priceListFetch.requests).toHaveLength(1);
+    expect(priceListFetch.requests[0]).toMatchObject({ cmd: "prepaid", username: "buyer-user" });
+
+    const products = await catalogRepository.listProducts();
+    const activeProduct = products.find((item) => item.skuDigiflazz === "X100");
+    const inactiveProduct = products.find((item) => item.skuDigiflazz === "S5");
+    expect(activeProduct).toMatchObject({
+      id: "existing-xl",
+      name: "Xl 100.000",
+      category: "Pulsa",
+      provider: "XL",
+      basePriceMinor: 98000,
+      isActive: true,
+      metadata: {
+        seller_name: "PT. ABC",
+        type: "Umum",
+        buyer_product_status: true,
+        seller_product_status: true,
+        stock: 0,
+        multi: true,
+        start_cut_off: "23:45",
+        end_cut_off: "00:15",
+        desc: "Pulsa Xl Rp 100.000",
+        sync_source: "digiflazz_buyer_price_list"
+      }
+    });
+    expect(inactiveProduct).toMatchObject({
+      name: "Telkomsel Pulsa 5.000",
+      provider: "TELKOMSEL",
+      basePriceMinor: 5100,
+      isActive: false,
+      metadata: {
+        seller_name: "PT. BCA",
+        buyer_product_status: true,
+        seller_product_status: false,
+        stock: 1200,
+        multi: false
+      }
+    });
+
+    const publicCatalogResponse = await request(app).get("/api/catalog/products");
+    expect(publicCatalogResponse.status).toBe(200);
+    expect((publicCatalogResponse.body as { products: CatalogProductBody[] }).products).toHaveLength(1);
+    expect((publicCatalogResponse.body as { products: CatalogProductBody[] }).products[0].product.sku_digiflazz).toBe("X100");
+    expect(priceListFetch.requests).toHaveLength(1);
+  });
+
+  it("requires admin auth for Digiflazz price-list sync", async () => {
+    const authRepository = new InMemoryAuthRepository();
+    const app = createApp({
+      authRepository,
+      fetchImpl: createPriceListFetchRecorder().fetchImpl,
+      digiflazzConfig: {
+        username: "buyer-user",
+        apiKey: "buyer-api-key",
+        apiBaseUrl: "https://api.example.test",
+        nodeEnv: "test"
+      }
+    });
+    const pengguna = await registerUser(app, "catalog-sync-user@example.com");
+
+    const missingTokenResponse = await request(app).post("/api/admin/catalog/digiflazz/price-list/sync").send({});
+    expect(missingTokenResponse.status).toBe(401);
+
+    const wrongRoleResponse = await request(app)
+      .post("/api/admin/catalog/digiflazz/price-list/sync")
+      .set("Authorization", "Bearer " + pengguna.token)
+      .send({});
+    expect(wrongRoleResponse.status).toBe(403);
+  });
+
+  it("rate-limits repeated Digiflazz price-list sync attempts", async () => {
+    const authRepository = new InMemoryAuthRepository();
+    const priceListFetch = createPriceListFetchRecorder();
+    const app = createApp({
+      authRepository,
+      fetchImpl: priceListFetch.fetchImpl,
+      digiflazzConfig: {
+        username: "buyer-user",
+        apiKey: "buyer-api-key",
+        apiBaseUrl: "https://api.example.test",
+        nodeEnv: "test"
+      }
+    });
+    const admin = await registerUser(app, "catalog-sync-rate-admin@example.com");
+    await authRepository.updateUser(admin.user.id, { role: "admin", updatedAt: createdAt });
+
+    const firstResponse = await request(app)
+      .post("/api/admin/catalog/digiflazz/price-list/sync")
+      .set("Authorization", "Bearer " + admin.token)
+      .send({});
+    expect(firstResponse.status).toBe(200);
+
+    const secondResponse = await request(app)
+      .post("/api/admin/catalog/digiflazz/price-list/sync")
+      .set("Authorization", "Bearer " + admin.token)
+      .send({});
+    expect(secondResponse.status).toBe(429);
+    expect(secondResponse.body).toMatchObject({
+      error: {
+        code: "DIGIFLAZZ_PRICE_LIST_SYNC_RATE_LIMITED",
+        message: "Digiflazz prepaid price-list sync was requested too soon."
+      }
+    });
+    expect(typeof secondResponse.body.error.retry_at).toBe("string");
+    expect(secondResponse.body.error.remaining_ms).toBeGreaterThan(0);
+    expect(priceListFetch.requests).toHaveLength(1);
   });
 
   it("protects admin management and rejects client-submitted prices", async () => {

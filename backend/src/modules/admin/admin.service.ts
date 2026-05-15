@@ -21,6 +21,13 @@ export class AdminUserNotFoundError extends Error {
   }
 }
 
+export class AdminEmailUnverifiedError extends Error {
+  constructor() {
+    super("Email verification is required before approving reseller access.");
+    this.name = "AdminEmailUnverifiedError";
+  }
+}
+
 function toPublicUser(user: AuthUser): AuthUser {
   return {
     id: user.id,
@@ -28,6 +35,7 @@ function toPublicUser(user: AuthUser): AuthUser {
     role: user.role,
     isResellerActive: user.isResellerActive,
     resellerStatus: user.resellerStatus,
+    emailVerifiedAt: user.emailVerifiedAt,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt
   };
@@ -55,7 +63,11 @@ export function createAdminService(options: AdminServiceOptions): AdminService {
     },
 
     async approveReseller(userId: string): Promise<AuthUser> {
-      await getExistingUser(userId);
+      const user = await getExistingUser(userId);
+      if (user.emailVerifiedAt === null) {
+        throw new AdminEmailUnverifiedError();
+      }
+
       return toPublicUser(
         await options.repository.updateUser(userId, {
           role: "seller",

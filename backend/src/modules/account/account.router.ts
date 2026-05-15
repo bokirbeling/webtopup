@@ -3,6 +3,7 @@ import { type Response, Router } from "express";
 import { sendForbidden } from "../auth/auth.middleware";
 import { type AuthUser } from "../auth/auth.types";
 import {
+  AccountEmailUnverifiedError,
   AccountForbiddenError,
   AccountUserNotFoundError,
   type AccountService
@@ -13,7 +14,17 @@ export type AccountRouterDependencies = Readonly<{
   accountService: AccountService;
 }>;
 
-const FORBIDDEN_ACCOUNT_FIELDS = new Set(["role", "password_hash", "is_reseller_active", "reseller_status"]);
+const FORBIDDEN_ACCOUNT_FIELDS = new Set([
+  "role",
+  "password_hash",
+  "is_reseller_active",
+  "reseller_status",
+  "email_verified_at",
+  "email_verification_token_hash",
+  "email_verification_expires_at",
+  "email_verification_sent_at",
+  "email_verification_resend_count"
+]);
 
 type ValidationIssue = Readonly<{
   field: string;
@@ -58,6 +69,8 @@ export function toUserResponse(user: AuthUser) {
     role: user.role,
     is_reseller_active: user.isResellerActive,
     reseller_status: user.resellerStatus,
+    email_verified: user.emailVerifiedAt !== null,
+    email_verified_at: user.emailVerifiedAt?.toISOString() ?? null,
     created_at: user.createdAt.toISOString(),
     updated_at: user.updatedAt.toISOString()
   };
@@ -127,6 +140,16 @@ export function createAccountRouter(dependencies: AccountRouterDependencies) {
     } catch (error) {
       if (error instanceof AccountForbiddenError) {
         sendForbidden(response);
+        return;
+      }
+
+      if (error instanceof AccountEmailUnverifiedError) {
+        response.status(403).json({
+          error: {
+            code: "EMAIL_VERIFICATION_REQUIRED",
+            message: "Email verification is required before requesting reseller access."
+          }
+        });
         return;
       }
 

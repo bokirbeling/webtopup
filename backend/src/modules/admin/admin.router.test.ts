@@ -3,6 +3,7 @@ import request from "supertest";
 
 import { createApp } from "../../app";
 import { InMemoryAuthRepository } from "../auth/auth.repository";
+import { type EmailVerificationMessage } from "../auth/auth.service";
 
 async function registerUser(app: ReturnType<typeof createApp>, email: string) {
   const response = await request(app).post("/api/auth/register").send({
@@ -17,7 +18,15 @@ async function registerUser(app: ReturnType<typeof createApp>, email: string) {
 describe("admin RBAC routes", () => {
   it("returns 401 without token, 403 for wrong role, and lets admins manage reseller status", async () => {
     const authRepository = new InMemoryAuthRepository();
-    const app = createApp({ authRepository });
+    const sentMessages: EmailVerificationMessage[] = [];
+    const app = createApp({
+      authRepository,
+      emailVerificationSender: {
+        async sendVerificationEmail(message) {
+          sentMessages.push(message);
+        }
+      }
+    });
     const admin = await registerUser(app, "admin@example.com");
     const pengguna = await registerUser(app, "pengguna@example.com");
 
@@ -55,6 +64,30 @@ describe("admin RBAC routes", () => {
       ])
     );
 
+    const unverifiedApprovalResponse = await request(app)
+      .post("/api/admin/users/" + pengguna.user.id + "/reseller/approve")
+      .set("Authorization", "Bearer " + admin.token);
+    expect(unverifiedApprovalResponse.status).toBe(403);
+    expect(unverifiedApprovalResponse.body).toEqual({
+      error: {
+        code: "EMAIL_VERIFICATION_REQUIRED",
+        message: "Email verification is required before approving reseller access."
+      }
+    });
+
+    const verificationRequestResponse = await request(app)
+      .post("/api/auth/email-verification/request")
+      .set("Authorization", "Bearer " + pengguna.token)
+      .send({});
+    expect(verificationRequestResponse.status).toBe(200);
+    expect(sentMessages).toHaveLength(1);
+
+    const verifyResponse = await request(app)
+      .post("/api/auth/email-verification/verify")
+      .set("Authorization", "Bearer " + pengguna.token)
+      .send({ token: sentMessages[0].token });
+    expect(verifyResponse.status).toBe(200);
+
     const resellerRequestResponse = await request(app)
       .post("/api/account/reseller-request")
       .set("Authorization", "Bearer " + pengguna.token)
@@ -64,7 +97,9 @@ describe("admin RBAC routes", () => {
       id: pengguna.user.id,
       role: "pengguna",
       is_reseller_active: false,
-      reseller_status: "requested"
+      reseller_status: "requested",
+      email_verified: true,
+      email_verified_at: expect.any(String)
     });
 
     const approvalResponse = await request(app)

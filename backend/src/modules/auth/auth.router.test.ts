@@ -2,11 +2,19 @@ import { describe, expect, it } from "@jest/globals";
 import request from "supertest";
 
 import { createApp } from "../../app";
+import { type EmailVerificationMessage } from "./auth.service";
 
 const credentials = {
   email: "User@Example.com",
   password: "correct-password"
 };
+
+function expectNoVerificationSecret(payload: unknown) {
+  expect(JSON.stringify(payload)).not.toContain("password_hash");
+  expect(JSON.stringify(payload)).not.toContain("passwordHash");
+  expect(JSON.stringify(payload)).not.toContain("email_verification_token_hash");
+  expect(JSON.stringify(payload)).not.toContain("emailVerificationTokenHash");
+}
 
 describe("auth routes", () => {
   it("registers pengguna users, logs in, and returns current user on both mounts", async () => {
@@ -42,14 +50,15 @@ describe("auth routes", () => {
         role: "pengguna",
         is_reseller_active: false,
         reseller_status: "none",
+        email_verified: false,
+        email_verified_at: null,
         created_at: expect.any(String),
         updated_at: expect.any(String)
       },
       token: expect.any(String),
       expires_in: "1h"
     });
-    expect(JSON.stringify(registerResponse.body)).not.toContain("password_hash");
-    expect(JSON.stringify(registerResponse.body)).not.toContain("passwordHash");
+    expectNoVerificationSecret(registerResponse.body);
 
     const loginResponse = await request(app).post("/api/auth/login").send({
       email: "user@example.com",
@@ -61,13 +70,14 @@ describe("auth routes", () => {
       user: {
         id: registerResponse.body.user.id,
         email: "user@example.com",
-        role: "pengguna"
+        role: "pengguna",
+        email_verified: false,
+        email_verified_at: null
       },
       token: expect.any(String),
       expires_in: "1h"
     });
-    expect(JSON.stringify(loginResponse.body)).not.toContain("password_hash");
-    expect(JSON.stringify(loginResponse.body)).not.toContain("passwordHash");
+    expectNoVerificationSecret(loginResponse.body);
 
     const meResponse = await request(app)
       .get("/api/auth/me")
@@ -78,9 +88,12 @@ describe("auth routes", () => {
       user: {
         id: registerResponse.body.user.id,
         email: "user@example.com",
-        role: "pengguna"
+        role: "pengguna",
+        email_verified: false,
+        email_verified_at: null
       }
     });
+    expectNoVerificationSecret(meResponse.body);
 
     const prefixedMeResponse = await request(app)
       .get("/ppob-api/api/auth/me")
@@ -88,6 +101,133 @@ describe("auth routes", () => {
 
     expect(prefixedMeResponse.status).toBe(200);
     expect(prefixedMeResponse.body).toEqual(meResponse.body);
+  });
+
+  it("requests, resends, and verifies email without exposing token hashes or raw tokens", async () => {
+    const sentMessages: EmailVerificationMessage[] = [];
+    const app = createApp({
+      emailVerificationSender: {
+        async sendVerificationEmail(message) {
+          sentMessages.push(message);
+        }
+      },
+      rateLimit: {
+        windowMs: 60_000,
+        maxRequests: 100
+      }
+    });
+
+    const registerResponse = await request(app).post("/api/auth/register").send(credentials);
+    expect(registerResponse.status).toBe(201);
+
+    const requestResponse = await request(app)
+      .post("/api/auth/email-verification/request")
+      .set("Authorization", "Bearer " + registerResponse.body.token)
+      .send({});
+
+    expect(requestResponse.status).toBe(200);
+    expect(requestResponse.body).toEqual({
+      email_verification: {
+        email_verified: false,
+        email_verified_at: null,
+        email_verification_sent_at: expect.any(String),
+        email_verification_expires_at: expect.any(String),
+        email_verification_resend_count: 1,
+        email_sent: true
+      }
+    });
+    expect(sentMessages).toHaveLength(1);
+    expect(sentMessages[0].to).toBe("user@example.com");
+    expectNoVerificationSecret(requestResponse.body);
+    expect(JSON.stringify(requestResponse.body)).not.toContain(sentMessages[0].token);
+
+    const verifyResponse = await request(app)
+      .post("/api/auth/email-verification/verify")
+      .set("Authorization", "Bearer " + registerResponse.body.token)
+      .send({ token: sentMessages[0].token });
+
+    expect(verifyResponse.status).toBe(200);
+    expect(verifyResponse.body).toMatchObject({
+      user: {
+        id: registerResponse.body.user.id,
+        email: "user@example.com",
+        email_verified: true,
+        email_verified_at: expect.any(String)
+      }
+    });
+    expectNoVerificationSecret(verifyResponse.body);
+
+    const verifiedRequestResponse = await request(app)
+      .post("/api/auth/email-verification/resend")
+      .set("Authorization", "Bearer " + registerResponse.body.token)
+      .send({});
+
+    expect(verifiedRequestResponse.status).toBe(200);
+    expect(verifiedRequestResponse.body.email_verification.email_verified).toBe(true);
+    expect(verifiedRequestResponse.body.email_verification.email_sent).toBe(false);
+    expect(sentMessages).toHaveLength(1);
+  });
+
+  it("enforces verification resend cooldown and rate limit", async () => {
+    const sentMessages: EmailVerificationMessage[] = [];
+    let nowMs = Date.parse("2026-05-15T10:00:00.000Z");
+    const app = createApp({
+      authClock: () => new Date(nowMs),
+      emailVerificationSender: {
+        async sendVerificationEmail(message) {
+          sentMessages.push(message);
+        }
+      },
+      rateLimit: {
+        windowMs: 60_000,
+        maxRequests: 100
+      }
+    });
+
+    const registerResponse = await request(app).post("/api/auth/register").send(credentials);
+    expect(registerResponse.status).toBe(201);
+
+    const firstResponse = await request(app)
+      .post("/api/auth/email-verification/request")
+      .set("Authorization", "Bearer " + registerResponse.body.token)
+      .send({});
+    expect(firstResponse.status).toBe(200);
+
+    const cooldownResponse = await request(app)
+      .post("/api/auth/email-verification/resend")
+      .set("Authorization", "Bearer " + registerResponse.body.token)
+      .send({});
+    expect(cooldownResponse.status).toBe(429);
+    expect(cooldownResponse.body).toEqual({
+      error: {
+        code: "EMAIL_VERIFICATION_COOLDOWN",
+        message: "Please wait before requesting another verification email."
+      }
+    });
+
+    for (let attempt = 2; attempt <= 5; attempt += 1) {
+      nowMs += 61_000;
+      const resendResponse = await request(app)
+        .post("/api/auth/email-verification/resend")
+        .set("Authorization", "Bearer " + registerResponse.body.token)
+        .send({});
+      expect(resendResponse.status).toBe(200);
+      expect(resendResponse.body.email_verification.email_verification_resend_count).toBe(attempt);
+    }
+
+    nowMs += 61_000;
+    const rateLimitedResponse = await request(app)
+      .post("/api/auth/email-verification/resend")
+      .set("Authorization", "Bearer " + registerResponse.body.token)
+      .send({});
+    expect(rateLimitedResponse.status).toBe(429);
+    expect(rateLimitedResponse.body).toEqual({
+      error: {
+        code: "EMAIL_VERIFICATION_RATE_LIMITED",
+        message: "Email verification resend limit reached. Try again after the current token expires."
+      }
+    });
+    expect(sentMessages).toHaveLength(5);
   });
 
   it("uses generic login failures and rejects missing or invalid bearer tokens", async () => {

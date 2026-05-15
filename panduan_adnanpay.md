@@ -82,6 +82,44 @@ Admin setelah login dapat mengelola operasi Digiflazz Buyer dari panel admin:
 - lihat status sync produk, total aktif/nonaktif, dan ringkasan webhook;
 - kelola user/reseller tanpa membuat mailbox cPanel per user.
 
+### Cara Login sebagai Admin
+
+1. Pastikan akun operator sudah terdaftar lewat `/dashboard` atau API register.
+2. Promote akun menjadi `role=admin` lewat proses backend/server-side tepercaya. Jangan buat endpoint publik untuk promosi admin.
+3. Buka `https://adnanpay.com/admin`.
+4. Login memakai email dan password akun admin.
+5. Jika berhasil, panel admin menampilkan:
+   - daftar user dan status email/reseller,
+   - approval/demote/suspend reseller,
+   - produk dan pricing rule,
+   - tombol sync produk Digiflazz Buyer,
+   - saldo Digiflazz Buyer,
+   - monitoring transaksi dan webhook.
+
+Jika akun belum `admin`, halaman tetap terbuka sebagai SPA tetapi kontrol admin disembunyikan dan backend mengembalikan `403 Forbidden` untuk endpoint admin.
+
+### API Login Admin
+
+```bash
+curl -X POST https://adnanpay.com/ppob-api/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"PasswordAdmin123!"}'
+```
+
+Simpan `token` dari response, lalu cek role:
+
+```bash
+curl https://adnanpay.com/ppob-api/api/auth/me \
+  -H "Authorization: Bearer TOKEN_ADMIN"
+```
+
+Role harus `admin` sebelum akses endpoint seperti:
+
+```bash
+curl https://adnanpay.com/ppob-api/api/admin/users \
+  -H "Authorization: Bearer TOKEN_ADMIN"
+```
+
 ## 4A. Verifikasi Email User/Reseller
 
 Alur produksi:
@@ -222,10 +260,38 @@ Fitur utama:
 ### Pengajuan Reseller
 
 1. Login sebagai user biasa.
-2. Buka dashboard.
-3. Klik tombol pengajuan reseller.
-4. Status akan menjadi `requested` sampai admin menyetujui.
-5. Setelah admin approve, role menjadi `seller` dan harga reseller aktif.
+2. Pastikan email sudah diverifikasi. Jika belum, gunakan fitur verifikasi/resend di dashboard.
+3. Buka dashboard.
+4. Klik tombol pengajuan reseller.
+5. Status akan menjadi `requested` sampai admin menyetujui.
+6. Setelah admin approve, role menjadi `seller` dan harga reseller aktif.
+
+Jika email belum verified, backend menolak pengajuan reseller dengan status `403` dan kode `EMAIL_VERIFICATION_REQUIRED`.
+
+### Cara Login sebagai Reseller
+
+Reseller memakai halaman login yang sama dengan member:
+
+```text
+https://adnanpay.com/dashboard
+```
+
+Alurnya:
+
+1. Login memakai email dan password akun yang sudah disetujui admin.
+2. Backend mengembalikan user dengan `role=seller` dan `is_reseller_active=true`.
+3. Dashboard menampilkan status reseller aktif.
+4. Catalog harga memakai harga role reseller dari backend.
+5. Order yang dibuat saat login menyimpan `user_id` dan snapshot harga reseller.
+
+API cek reseller setelah login:
+
+```bash
+curl https://adnanpay.com/ppob-api/api/account/status \
+  -H "Authorization: Bearer TOKEN_RESELLER"
+```
+
+Response reseller aktif harus menunjukkan role `seller`, `is_reseller_active=true`, dan `reseller_status=approved`.
 
 ## 7. Dashboard Admin
 

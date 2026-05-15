@@ -209,6 +209,58 @@ Current safe bootstrap flow:
 
 Do not expose bootstrap tokens in the frontend or create a public browser-only promotion flow.
 
+### Admin login checklist
+
+Admin login uses the same custom JWT auth as regular users. There is no separate cPanel account per admin.
+
+1. Register or create the operator user in the Adnanpay application database.
+2. Promote the operator to `role=admin` through a trusted backend-side process only.
+3. Login through `https://adnanpay.com/admin` or `POST /api/auth/login`.
+4. Confirm `GET /api/auth/me` returns `role=admin`.
+5. Confirm admin endpoints such as `GET /api/admin/users` and `GET /api/admin/digiflazz/operations` return `200` with the admin bearer token.
+
+Example API sequence:
+
+```bash
+curl -X POST https://adnanpay.com/ppob-api/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"PasswordAdmin123!"}'
+
+curl https://adnanpay.com/ppob-api/api/auth/me \
+  -H "Authorization: Bearer TOKEN_ADMIN"
+
+curl https://adnanpay.com/ppob-api/api/admin/users \
+  -H "Authorization: Bearer TOKEN_ADMIN"
+```
+
+### Reseller login and approval checklist
+
+Resellers are Adnanpay app users, not cPanel email users. They login through `https://adnanpay.com/dashboard` with the same auth flow as members.
+
+Required reseller lifecycle:
+
+1. User registers with `POST /api/auth/register` or `/dashboard`.
+2. User verifies email through the backend email verification flow.
+3. User requests reseller status from dashboard or `POST /api/account/reseller-request`.
+4. Admin approves from `/admin`; backend sets `role=seller`, `is_reseller_active=true`, and `reseller_status=approved`.
+5. Reseller logs in through `/dashboard` and catalog/order pricing uses backend role-aware seller price.
+
+Important rejection paths:
+
+- Unverified user requesting reseller gets `403 EMAIL_VERIFICATION_REQUIRED`.
+- Non-admin approving reseller gets `403 Forbidden`.
+- Frontend must not set trusted final pricing; backend stores order pricing snapshots.
+
+Useful status checks:
+
+```bash
+curl https://adnanpay.com/ppob-api/api/account/status \
+  -H "Authorization: Bearer TOKEN_RESELLER"
+
+curl https://adnanpay.com/ppob-api/api/catalog/products \
+  -H "Authorization: Bearer TOKEN_RESELLER"
+```
+
 ### Rollback steps
 
 1. Keep a timestamped backup of the last known-good frontend build before replacing files in `/home/adnanpay/public_html`.

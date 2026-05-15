@@ -1,0 +1,20 @@
+Task 6 unauthenticated dashboard evidence
+
+Route exercised:
+- /dashboard with no stored session.
+
+Command evidence:
+- `npm test` from `Frontend/`: PASS, `src/test/app.smoke.test.tsx` collected normally and ran 9 tests.
+- Relevant passing test: `shows anonymous dashboard protection without fetching private data`.
+- `npm run lint` from `Frontend/`: PASS.
+- `npm run typecheck` from `Frontend/`: PASS.
+- `npm run build` from `Frontend/`: PASS.
+
+Observed behavior covered by tests:
+- Anonymous direct navigation to `/dashboard` renders the login/register auth panel and the message `Masuk untuk melihat dashboard transaksi BayarKu.`.
+- No private account email is rendered before authentication.
+- `fetch` is not called at all for anonymous `/dashboard`, so `/api/auth/me`, `/api/account/status`, and `/api/catalog/products` are not requested without a token.
+- Existing `/` landing route and `/invoice/:code` public route remain covered by the same smoke suite.
+
+Browser screenshot note:
+- Text evidence is used instead of Playwright screenshots because deterministic jsdom route coverage directly verifies anonymous protection and command output confirms the complete frontend gate set passes.

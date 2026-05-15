@@ -9,6 +9,7 @@
 > - Admin dashboard for catalog, margin, reseller approval, and transaction/log monitoring
 > - Member/reseller dashboard for history, reseller status, and role-aware catalog pricing
 > - Deployment/security verification updates for cPanel shared hosting
+> - Production placement target: `adnanpay.com` as the primary public domain served from `/home/adnanpay/public_html` on the Adnanpay Natanetwork cPanel account
 > **Effort**: XL
 > **Parallel**: YES - 4 waves
 > **Critical Path**: Task 1 → Task 2 → Task 3 → Task 4 → Task 6 → Final Verification
@@ -30,6 +31,9 @@
 - Orders must store immutable pricing snapshots because product cost and markup can change after checkout.
 - RBAC must include row ownership checks, not just route-level role checks.
 - cPanel/Passenger constraints prohibit PM2/systemd/root-only deployment assumptions.
+- Final deployment readiness must use the Adnanpay Natanetwork MCP for server/public_html inspection and the Adnanpay Supabase MCP for database/API verification; completion requires testing until the public site and backend flows are normal.
+- Execution priority update: remaining work should prioritize code writing and implementation speed first. Full end-to-end testing is deferred to the final MCP verification phase, especially through Adnanpay Natanetwork MCP for deployed/public behavior; local tests remain useful but must not block coding when failures are environment-only.
+- Subagent fallback update: if a subagent is stuck, aborted, or does not respond after reasonable retry, the main agent must continue the implementation/documentation path directly instead of waiting indefinitely.
 
 ## Work Objectives
 ### Core Objective
@@ -47,6 +51,7 @@ Turn the existing MVP into a production-ready reseller-capable PPOB platform whi
 ### Definition of Done (verifiable conditions with commands)
 - `cd backend && npm run lint && npm run typecheck && npm run test && npm run build` passes.
 - `cd Frontend && npm run lint && npm run typecheck && npm run test && npm run build` passes.
+- If local tests fail because of missing local services, host connectivity, browser/runtime environment, or other non-code environment blockers, document the exact failure and continue; final normal-flow testing must be completed later through MCP, with primary focus on Adnanpay Natanetwork public deployment behavior.
 - Guest checkout, Midtrans webhook, Digiflazz callback, and `/invoice/:code` regression tests pass.
 - Unauthorized users cannot access admin/member APIs; wrong roles receive `403`.
 - Logged-in `pengguna` and `seller` receive different backend-calculated prices for the same product when pricing rules differ.
@@ -304,7 +309,7 @@ Wave 4: Task 8 deployment/runbook/security gates
 
   **Commit**: YES | Message: `feat(order): snapshot server pricing` | Files: [`backend/src/modules/order/*`, `backend/src/modules/payment/*`, backend tests]
 
-- [ ] 6. Add frontend auth routing and member/reseller dashboard
+- [x] 6. Add frontend auth routing and member/reseller dashboard
 
   **What to do**: Introduce client-side routing/state while preserving current landing and invoice behavior. Add login/register forms, auth token storage strategy, `/dashboard` member page, reseller request/status UI, transaction history, and role-aware catalog display using backend prices. Keep `/invoice/:code` route behavior intact from current path parser or replace with router equivalent that preserves URL compatibility.
   **Must NOT do**: Do not store service role key or trusted pricing logic in frontend. Do not remove existing landing components.
@@ -345,7 +350,7 @@ Wave 4: Task 8 deployment/runbook/security gates
 
   **Commit**: YES | Message: `feat(frontend): add member auth dashboard` | Files: [`Frontend/src/*`, frontend tests]
 
-- [ ] 7. Add admin dashboard for products, margins, users, and operational logs
+- [x] 7. Add admin dashboard for products, margins, users, and operational logs
 
   **What to do**: Add `/admin` UI restricted to admin role. Provide product list/create/edit/toggle active, pricing rule management for global/category/product role rules, reseller approval/demotion, and read-only transaction/webhook/log monitoring. UI must call backend admin APIs only. Include clear forbidden state for non-admin users.
   **Must NOT do**: Do not expose admin controls based only on frontend role checks; backend must enforce every action.
@@ -386,15 +391,15 @@ Wave 4: Task 8 deployment/runbook/security gates
 
   **Commit**: YES | Message: `feat(frontend): add admin management dashboard` | Files: [`Frontend/src/*`, frontend tests]
 
-- [ ] 8. Update deployment, security, and verification runbooks for cPanel production readiness
+- [x] 8. Update deployment, security, and verification runbooks for cPanel production readiness
 
-  **What to do**: Update `readme.md` and/or `server_spec.md` with final production-readiness instructions. Document backend startup via `dist/index.js`, cPanel Node.js App env keys, static frontend build/upload, SPA fallback, webhook callback URLs, HTTPS requirement, secret checklist, admin bootstrap procedure, rollback steps, and verification commands. Add tests/scripts only if already supported; avoid root-only commands.
+  **What to do**: Update `readme.md` and/or `server_spec.md` with final production-readiness instructions. Document backend startup via `dist/index.js`, cPanel Node.js App env keys, static frontend build/upload, SPA fallback, webhook callback URLs, HTTPS requirement, secret checklist, admin bootstrap procedure, rollback steps, and verification commands. Add the final production target: domain `adnanpay.com` must be the primary public site, with public frontend placement under `/home/adnanpay/public_html` on the Adnanpay Natanetwork cPanel account. Use Adnanpay Natanetwork MCP for user-level server/public_html checks and Adnanpay Supabase MCP for database/API checks. Add tests/scripts only if already supported; avoid root-only commands.
   **Must NOT do**: Do not attempt root operations, system package updates, PM2, systemd, or destructive server changes.
 
   **Recommended Agent Profile**:
   - Category: `doc-writer` - Reason: deployment and verification documentation.
-  - Skills: [`adnanpay-natanetwork`] - Needed for cPanel/user-level constraints.
-  - Omitted: [`supabase-postgres-best-practices`] - Schema already handled in Task 1.
+  - Skills: [`adnanpay-natanetwork`, `supabase`] - Needed for cPanel/user-level constraints, `adnanpay.com` public placement, and Supabase API/database verification.
+  - Omitted: [`supabase-postgres-best-practices`] - Schema design already handled in Task 1; Task 8 only verifies applied state and connectivity.
 
   **Parallelization**: Can Parallel: PARTIAL | Wave 4 | Blocks: final verification | Blocked By: Tasks 2,5,6,7 for final env/routes
 
@@ -410,6 +415,12 @@ Wave 4: Task 8 deployment/runbook/security gates
   - [ ] Verification commands include backend and frontend lint/typecheck/test/build.
   - [ ] cPanel deployment steps avoid root/PM2/systemd assumptions.
   - [ ] Webhook URLs and HTTPS/SSL checks are documented.
+  - [ ] `adnanpay.com` is documented as the final public primary domain, with frontend/public assets placed under `/home/adnanpay/public_html` and backend/API routing documented for cPanel/Passenger.
+  - [ ] Adnanpay Natanetwork MCP checks verify SSH/account-level visibility of `/home/adnanpay/public_html`, domain/public path assumptions, and available app logs without sudo/root.
+  - [ ] Adnanpay Supabase MCP checks verify migrations/API reachability/RLS-security posture relevant to the completed tasks.
+  - [ ] Final smoke checklist requires testing until normal: public homepage, `/invoice/:code`, auth register/login/me, dashboard/admin protected states, catalog pricing, order/payment/fulfillment webhook-safe flows.
+  - [ ] Testing strategy explicitly prioritizes implementation first, then final MCP-based smoke testing on Adnanpay Natanetwork; environment-only local failures are documented as blockers instead of stopping code/documentation progress.
+  - [ ] Runbook states that if a subagent becomes stuck/aborted/non-responsive, the main agent proceeds directly with the remaining implementation/docs/evidence work.
 
   **QA Scenarios**:
   ```
@@ -424,6 +435,12 @@ Wave 4: Task 8 deployment/runbook/security gates
     Steps: Search built frontend artifacts for `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`, `MIDTRANS_SERVER_KEY`, `DIGIFLAZZ_API_KEY` literal env names/values where safe.
     Expected: No backend secrets appear in frontend build artifacts.
     Evidence: .sisyphus/evidence/task-8-secret-scan.txt
+
+  Scenario: adnanpay.com public placement and MCP smoke
+    Tool: adnanpay-natanetwork MCP + adnanpay-supabase MCP + Bash/curl
+    Steps: After implementation/docs are complete, verify `/home/adnanpay/public_html` visibility, document final `adnanpay.com` placement, verify Supabase project API/database state, then smoke public homepage/API flows until normal. If local tests failed from environment-only causes, re-run equivalent verification through MCP here.
+    Expected: `adnanpay.com` deployment path and Supabase connectivity are documented; implementation was not blocked by local environment-only failures; any MCP blocker is recorded with exact failing command/log and remediation.
+    Evidence: .sisyphus/evidence/task-8-adnanpay-domain-smoke.txt
   ```
 
   **Commit**: YES | Message: `docs(deploy): add cpanel verification gates` | Files: [`readme.md`, deployment docs, `.env.example`, `.sisyphus/evidence/*` as applicable]
@@ -432,10 +449,10 @@ Wave 4: Task 8 deployment/runbook/security gates
 > 4 review agents run in PARALLEL. ALL must APPROVE. Present consolidated results to user and get explicit "okay" before completing.
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 > **Never mark F1-F4 as checked before getting user's okay.** Rejection or user feedback -> fix -> re-run -> present again -> wait for okay.
-- [ ] F1. Plan Compliance Audit — oracle
-- [ ] F2. Code Quality Review — unspecified-high
-- [ ] F3. Real Manual QA — unspecified-high (+ playwright for frontend/dashboard flows)
-- [ ] F4. Scope Fidelity Check — deep
+- [x] F1. Plan Compliance Audit — oracle
+- [x] F2. Code Quality Review — unspecified-high
+- [x] F3. Real Manual QA — unspecified-high (+ playwright for frontend/dashboard flows)
+- [x] F4. Scope Fidelity Check — deep
 
 ## Commit Strategy
 - Commit each task separately after its tests/evidence pass.

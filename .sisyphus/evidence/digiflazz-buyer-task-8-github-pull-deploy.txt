@@ -1,0 +1,28 @@
+Task 8 GitHub pull deployment evidence
+
+Git source state:
+- Current branch: PPOB-Adnanpay.
+- Remotes visible: bokirbeling and vscode GitHub remotes.
+- Worktree is dirty with completed plan changes and evidence files; no commit or push was performed in this step.
+
+Required deployment flow documented:
+1. Finish verification and secret scan.
+2. Commit locally with a reviewed message.
+3. Push to the chosen GitHub remote/branch.
+4. SSH to Natanetwork as cPanel user adnanpay.
+5. Pull the pushed commit into /home/adnanpay/ppob-backend or staging clone.
+6. Preserve .env.production.
+7. Install/build with /home/adnanpay/nodevenv/ppob-backend/20/bin/npm.
+8. Copy frontend build into /home/adnanpay/public_html.
+9. Restart Passenger with touch /home/adnanpay/ppob-backend/tmp/restart.txt.
+10. Smoke https://adnanpay.com/ppob-api/health, auth, catalog, admin Digiflazz operations, and frontend Adnanpay branding.
+
+Server inspection:
+- SSH verified /home/adnanpay/public_html and /home/adnanpay/ppob-backend exist.
+- cPanel Node runtime v20.20.2 exists.
+- Current public frontend is stale and still serves the old BayarKu build until GitHub pull/deploy happens.
+- Remote Supabase migrations for postpaid inquiries and email verification were applied successfully through Supabase MCP; security advisors show no lints.
+
+Result:
+- RUNBOOK READY.
+- DEPLOY NOT EXECUTED in this step because commit/push was not requested and worktree is intentionally dirty during Sisyphus execution.

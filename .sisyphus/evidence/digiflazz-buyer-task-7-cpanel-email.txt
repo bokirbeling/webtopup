@@ -1,0 +1,16 @@
+Task 7 cPanel SMTP sender evidence
+
+Implemented:
+- Added SMTP sender-only placeholders to .env.example: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM_EMAIL, SMTP_FROM_NAME.
+- Added backend env parsing for optional SMTP sender config without real secret values.
+- Added docs/cpanel-smtp-sender-runbook.md.
+
+Runbook safety:
+- Uses one mailbox such as no-reply@adnanpay.com as the application sender.
+- Explicitly says not to create cPanel mailboxes per Adnanpay user or reseller.
+- Keeps SMTP password in deployment runtime secrets only, never in Git/docs.
+- No SSH, deployment, server file changes, or cPanel mailbox creation was performed.
+
+Backend wiring:
+- Added native implicit-TLS SMTP sender for the configured cPanel sender mailbox using Node built-ins only; no external email dependency was added.
+- backend/src/index.ts wires SMTP sender only when all SMTP_* values are configured together.

@@ -1,0 +1,5 @@
+Forbidden source grep evidence
+Command: Select-String -Path docs/digiflazz-buyer/*.md -Pattern api_management|seller/prabayar|/api/seller
+
+Result: NO MATCHES FOUND
+Root orientation exception note: root.md preserves official Buyer/Seller matrix language only and contains no forbidden Seller or API Management paths.

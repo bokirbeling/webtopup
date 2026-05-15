@@ -1,0 +1,72 @@
+Task 8 domain smoke evidence
+Date: 2026-05-14
+
+Production target documented:
+- Primary public domain: https://adnanpay.com
+- cPanel account: adnanpay@103.164.173.46:31988
+- Home: /home/adnanpay
+- Web root: /home/adnanpay/public_html
+- Backend runtime target: backend/dist/index.js via cPanel Node.js App / Passenger
+
+MCP findings:
+- Adnanpay Natanetwork user-level inspection did not complete. SSH command failed with: Cannot parse privateKey: Encrypted private OpenSSH key detected, but no passphrase given
+- Because SSH inspection failed, no live public-domain smoke was executed against the server in this task.
+- Adnanpay Supabase list_migrations originally returned only:
+  - 20260514015123 transactional_schema_rls_idempotency_task4_v2
+  - 20260514022714 demo_tables_for_development_mode
+- Final-wave remediation applied the accounts/catalog/pricing/order snapshot migration remotely via Adnanpay Supabase MCP.
+- Adnanpay Supabase list_migrations now includes:
+  - 20260514015123 transactional_schema_rls_idempotency_task4_v2
+  - 20260514022714 demo_tables_for_development_mode
+  - 20260514134959 accounts_catalog_pricing_order_snapshots
+- Adnanpay Supabase list_tables confirms remote `users`, `products`, `pricing_rules`, `demo_users`, `demo_products`, and `demo_pricing_rules` exist with RLS enabled.
+- Adnanpay Supabase security advisors returned no lints.
+
+Readiness conclusion:
+- Final production smoke remains blocked until the SSH passphrase issue is resolved.
+- Later local migration gap for the Task 1 account/catalog/pricing schema was remediated and verified remotely by migration list/table inspection.
+- Local Supabase CLI validation against 127.0.0.1:54322 is still unavailable in this environment, so remote verification is still required.
+
+Final deployment pass (2026-05-14):
+- User-supplied OpenSSH command succeeded with `id_rsa_natanetwork`, confirming SSH identity `adnanpay`, home `/home/adnanpay`, and web root `/home/adnanpay/public_html` visibility.
+- Server inspection found existing primary domain placeholder (`index.php`), working preview frontend under `/ppob-preview`, and stale backend under `/home/adnanpay/ppob-backend` exposed through `/ppob-api`.
+- Created timestamped non-root backups under `/home/adnanpay/backups/deploy_backup_20260514_221958` before deploying.
+- Deployed current backend build to `/home/adnanpay/ppob-backend/dist`, updated backend `package.json`/`package-lock.json`, ran cPanel nodeenv npm install with no vulnerabilities, and restarted Passenger via `tmp/restart.txt`.
+- Added required backend auth env keys to `.env.production` without printing secret values.
+- Deployed current frontend build to `/home/adnanpay/public_html/index.html` and `/home/adnanpay/public_html/assets`, with SPA fallback `.htaccess` preserving `/ppob-api` Passenger routing.
+- Rebuilt frontend with `VITE_API_BASE_URL=https://adnanpay.com/ppob-api` and redeployed assets so browser API calls target the live backend base path.
+- Public smoke after deploy:
+  - `https://adnanpay.com` returns BayarKu landing page.
+  - `https://adnanpay.com/dashboard` returns BayarKu SPA shell.
+  - `https://adnanpay.com/invoice/INV-TEST-0001` returns BayarKu SPA shell.
+  - `https://adnanpay.com/ppob-api/health` returns `{"status":"ok"}`.
+  - `POST https://adnanpay.com/ppob-api/api/auth/register` succeeded for a generated smoke user with role `pengguna` and returned a token.
+  - `GET https://adnanpay.com/ppob-api/api/auth/me` with the smoke token returned the same user.
+  - `GET https://adnanpay.com/ppob-api/api/catalog/products` with the smoke token returned an empty products list, which is expected until products are seeded.
+
+Final wave F3 retry:
+- Retried Adnanpay Natanetwork MCP user-level command for `/home/adnanpay/public_html` access.
+- Result remained blocked with: Cannot parse privateKey: Encrypted private OpenSSH key detected, but no passphrase given
+- No live `adnanpay.com` smoke was claimed.
+
+Public HTTPS probe without SSH access:
+- `https://adnanpay.com` returns the default Natanetwork/cPanel placeholder page, not the Adnanpay frontend build.
+- `https://adnanpay.com/invoice/INV-TEST-0001` returns 404, so SPA fallback is not deployed/configured yet.
+- `https://adnanpay.com/api/auth/me` returns 404, so backend API routing is not live on the domain yet.
+- `https://adnanpay.com/health` returns 404, so backend health routing is not live on the domain yet.
+
+Analyze-mode retry:
+- Re-read the plan; F3 remained the only unchecked item.
+- Retried Adnanpay Natanetwork MCP SSH command; same encrypted-key/passphrase error remained.
+- Retried public HTTPS probe; `https://adnanpay.com` still returned the default Natanetwork/cPanel placeholder and `/health` still returned 404.
+
+User waiver:
+- User instructed `skip ssh` for the remaining F3 gate.
+- SSH/public_html inspection is therefore intentionally skipped for this completion pass.
+- F3 completion is based on local backend/frontend verification, Supabase MCP verification, and documented public HTTPS probe state rather than SSH inspection.
+
+SSH command supplied by user and executed successfully:
+- Command: `ssh -p 31988 -i "$env:USERPROFILE\.ssh\id_rsa_natanetwork" adnanpay@103.164.173.46 "pwd && whoami && ls -la /home/adnanpay/public_html | head -20"`
+- Output confirmed SSH access as `adnanpay` and readable home `/home/adnanpay`.
+- `/home/adnanpay/public_html` listing included `.htaccess`, `.well-known/`, `cgi-bin/`, `demo/`, `index.php`, `ppob-api/`, `ppob-api-temp/`, `ppob-preview/`, and `speedtest/`.
+- This validates account-level SSH/web-root visibility. Public HTTPS probes still showed the default `index.php` placeholder until deployment replaces it.

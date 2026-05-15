@@ -24,3 +24,26 @@
 - Order creation stayed backward compatible by keeping the legacy direct-amount payload valid while adding an explicit optional `product_id` path that re-quotes through `CatalogService` at order time.
 - Optional bearer auth belongs at the orders router boundary: no `Authorization` header keeps guest role `pengguna`, but any malformed or invalid bearer token now returns 401 for order creation instead of silently downgrading to guest.
 - Product-priced orders now override client `product_code`, `provider`, and trusted price inputs with catalog-derived values, while persisting nullable `user_id`, `base_price_snapshot`, `markup_snapshot`, `role_price_snapshot`, and `pricing_rule_id_snapshot` for downstream payment and audit consistency.
+
+## 2026-05-14 - Task 6 frontend auth dashboard
+- Frontend dashboard auth stays API-only: `/dashboard` stores only `bayarku.auth.session` with backend token/user data, fetches `/api/auth/me` and `/api/account/status` with Bearer auth, and never exposes service-role or JWT secret material.
+- Role-aware catalog display uses backend `/api/catalog/products` response values directly, including `final_price_minor`; React only formats the returned number for display and does not compute trusted pricing or margins.
+- Dashboard route protection is render-level for the MVP: anonymous `/dashboard` shows the auth panel and intentionally performs zero private fetches until login/session is present.
+
+## 2026-05-14 - Task 8 deployment runbook
+- Production runbook must reflect the real backend mount shape: the Express app serves identical routes at root and `/ppob-api`, so `adnanpay.com/api/*` is the preferred public target while `/ppob-api/api/*` remains compatibility-only.
+- `ADMIN_BOOTSTRAP_TOKEN` is validated in backend env config but does not power a public bootstrap endpoint yet, so first-admin setup must stay backend-side and out of the browser.
+
+## 2026-05-14 - Final wave evidence補
+- Task 7 dedicated admin evidence was added as deterministic text evidence from `Frontend/src/test/app.smoke.test.tsx` because previous evidence-writer subagents aborted and screenshots were unavailable locally.
+- Admin forbidden evidence covers anonymous and non-admin `/admin` states with no management controls visible.
+- Admin pricing evidence covers product creation, pricing rule update, and reseller approval through mocked backend admin APIs with bearer authorization.
+
+## 2026-05-14 - Final F4 dashboard history fix
+- Dashboard history now uses protected backend endpoints instead of frontend placeholders: /api/account/transactions filters orders by auth user, while /api/admin/monitoring stays behind the existing admin role guard and returns read-only transaction/webhook data.
+- Existing order/payment/fulfillment repositories are the right seam for dashboard monitoring; adding list methods kept Supabase service-role access server-side and let in-memory tests cover member/admin behavior without public route regressions.
+- Frontend dashboard tests should mock the extra /api/account/transactions and /api/admin/monitoring calls immediately after catalog/users loads because dashboards now fail closed on history/monitoring API errors.
+## 2026-05-14 Task: manual-ssh-guide
+Created `manual_ssh.md` with Windows PowerShell/OpenSSH and PuTTY/Plink commands for user-side recovery of Adnanpay Natanetwork SSH access. Guide avoids exposing the passphrase and asks user to return only `pwd`, `whoami`, and `/home/adnanpay/public_html` listing after successful login.
+## 2026-05-14 Task: panduan-adnanpay
+Created `panduan_adnanpay.md` as the complete Indonesian live operations guide, including login/register, admin dashboard, API auth, member/reseller flow, SSH/cPanel paths, smoke tests, rollback, troubleshooting, and security notes. No real secrets or passphrases were included.

@@ -1,0 +1,30 @@
+Digiflazz Buyer Task 2 Signature/Contract Evidence
+Date: 2026-05-15
+
+Implemented files:
+- backend/src/modules/digiflazz/buyer-client.ts
+- backend/src/modules/digiflazz/buyer-client.test.ts
+- backend/src/modules/fulfillment/fulfillment.service.ts
+- backend/src/modules/fulfillment/fulfillment.router.test.ts
+
+Signature formulas verified by focused Jest tests with deterministic non-secret credentials (`buyer-user` / `buyer-api-key`):
+- topup/recheck/postpaid/status/pay: md5(username + apiKey + ref_id) -> ref-001 = 6c4f822bea21bfb8a29da37b318703b5
+- price list: md5(username + apiKey + "pricelist") = 315f8be55c50aac93fb58f16328b605e
+- cek saldo: md5(username + apiKey + "depo") = e643abd4620fed01b1d262e3fb2f4260
+- deposit ticket: md5(username + apiKey + "deposit") = 8e714655c8c7d022f2044a7c7e25cf91
+- PLN inquiry: md5(username + apiKey + customer_no) -> 530000000003 = 457047a708cf1b245b912285257f510b
+
+Commands run:
+- lsp_diagnostics on backend/src/modules/digiflazz/buyer-client.ts: pass, no diagnostics
+- lsp_diagnostics on backend/src/modules/digiflazz/buyer-client.test.ts: pass, no diagnostics
+- lsp_diagnostics on backend/src/modules/fulfillment/fulfillment.service.ts: pass, no diagnostics
+- lsp_diagnostics on backend/src/modules/fulfillment/fulfillment.router.test.ts: pass, no diagnostics
+- npm test -- --runTestsByPath src/modules/digiflazz/buyer-client.test.ts src/modules/fulfillment/fulfillment.router.test.ts: pass, 2 suites / 9 tests
+- npm run lint: pass
+- npm run typecheck: pass
+- npm run build: pass
+- npm test -- --silent: pass, 15 suites / 42 tests
+- npx tsx -e manual Buyer contract import/build/parse driver: pass, emitted expected topup sign/status/rc summary
+
+Notes:
+- Jest emitted existing ts-jest TS151002 warnings about NodeNext hybrid module kind and isolatedModules during non-silent test runs; tests still passed.

@@ -1,0 +1,28 @@
+Task 7 admin pricing/product/reseller evidence
+Date: 2026-05-14
+
+Evidence source:
+- `Frontend/src/test/app.smoke.test.tsx`
+- Local final verification command: `npm --prefix Frontend test`
+
+Covered admin scenario:
+- Admin stored session opens `/admin`.
+- Frontend fetches `http://localhost:3001/api/auth/me` and confirms role `admin`.
+- Frontend loads admin products from `http://localhost:3001/api/admin/catalog/products`.
+- Frontend loads pricing rules from `http://localhost:3001/api/admin/catalog/pricing-rules`.
+- Frontend loads users from `http://localhost:3001/api/admin/users`.
+- Admin dashboard renders admin email, product count, pricing count, user count, and read-only ops panel.
+- Admin creates a product through `POST http://localhost:3001/api/admin/catalog/products`.
+- Created product appears in `data-testid="admin-product-admin-product-created"` with text `Created Admin Product`.
+- Admin updates a pricing rule through `PATCH http://localhost:3001/api/admin/catalog/pricing-rules/pricing-rule-1`.
+- Updated pricing rule appears in `data-testid="admin-pricing-pricing-rule-1"` with text `Rp 600`.
+- Admin approves a reseller request through `POST http://localhost:3001/api/admin/users/user-2002/reseller/approve`.
+- Updated user row appears in `data-testid="admin-user-user-2002"` with text `Disetujui`.
+- Admin API action includes `Authorization: Bearer admin-token`.
+
+Verification result:
+- `npm --prefix Frontend test` passed with 1 test file and 12 tests.
+- Final local verification also passed frontend lint, typecheck, test, and build.
+
+Notes:
+- Screenshot capture was not produced in this local environment. This text evidence is deterministic jsdom evidence from the admin route tests.

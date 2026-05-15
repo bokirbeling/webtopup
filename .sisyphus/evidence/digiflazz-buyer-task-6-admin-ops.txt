@@ -1,0 +1,24 @@
+Task: Digiflazz Buyer admin operations panel
+Date: 2026-05-15
+
+Implemented surfaces:
+- Backend admin-only route: GET /api/admin/digiflazz/operations
+- Frontend admin panel: data-testid="digiflazz-ops-panel"
+- Frontend sync action: POST /api/admin/catalog/digiflazz/price-list/sync via data-testid="digiflazz-sync-button"
+
+Verified behavior:
+- Admin dashboard loads /api/admin/digiflazz/operations after /api/admin/monitoring.
+- Operations panel renders saldo deposit, product cache count, active/inactive counts, last sync timestamp, and failed webhook count.
+- Sync button calls existing admin price-list sync endpoint with Bearer token, then refreshes operations state.
+- Backend operations response returns only operational numbers/status text; no API key, signature, webhook secret, service-role key, or raw Digiflazz credential payload is returned.
+
+Commands run:
+- backend: npm test -- --runTestsByPath src/modules/dashboard/dashboard.router.test.ts --silent
+- backend: npm run lint && npm run typecheck && npm test -- --silent && npm run build
+- frontend: npm test -- src/test/app.smoke.test.tsx
+- frontend: npm run lint && npm run typecheck && npm test && npm run build
+
+Observed result:
+- Dashboard backend focused tests passed: 3 tests.
+- Frontend smoke tests passed: 12 tests.
+- Full backend and frontend local gates passed; frontend build emitted only existing Browserslist data freshness warning.

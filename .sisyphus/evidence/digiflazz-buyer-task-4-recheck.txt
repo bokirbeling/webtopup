@@ -1,0 +1,23 @@
+Digiflazz Buyer Task 4 - prepaid pending recheck evidence
+
+Implemented surface:
+- POST /api/fulfillments/digiflazz/recheck accepts order_id and reuses the existing local fulfillment/provider_reference.
+- Recheck repeats Buyer topup against /v1/transaction with the same ref_id, rather than creating a second local fulfillment/order.
+- Server-side topup controls are sourced from backend config only: DIGIFLAZZ_TOPUP_TESTING, DIGIFLAZZ_TOPUP_MAX_PRICE, DIGIFLAZZ_TOPUP_CALLBACK_URL, DIGIFLAZZ_TOPUP_ALLOW_DOT.
+- Trigger route remains paid-only; recheck route requires an existing Digiflazz fulfillment and does not create one.
+
+Focused test evidence:
+- npm test -- --runTestsByPath src/modules/fulfillment/fulfillment.router.test.ts
+- Result: 1 suite passed, 9 tests passed.
+- Covered Pending -> Sukses recheck with two captured topup payloads using identical ref_id and one local fulfillment id.
+
+Regression evidence:
+- npm test -- --runTestsByPath src/modules/regression/lifecycle.regression.test.ts
+- Result: 1 suite passed, 4 tests passed.
+- npm test -- --silent
+- Result: 15 suites passed, 50 tests passed.
+
+Build/check evidence:
+- npm run lint: passed.
+- npm run typecheck: passed.
+- npm run build: passed.

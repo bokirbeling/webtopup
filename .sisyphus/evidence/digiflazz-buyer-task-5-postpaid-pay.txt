@@ -1,0 +1,35 @@
+# Digiflazz Buyer Task 5 Postpaid Pay Evidence
+
+Commands run:
+- `npm test -- --runTestsByPath src/modules/postpaid/postpaid.router.test.ts --silent`
+
+Observed mocked inquiry snapshot:
+- `ref_id`: `postpaid-ref-001`
+- `buyer_sku_code`: `pln`
+- `customer_no`: `530000000001`
+- `customer_name`: `Nama Pelanggan Pertama`
+- `admin`: `2500`
+- `price`: `10000`
+- `selling_price`: `11000`
+- `amount_minor`: `11000`
+- `status`: `Sukses`
+- `rc`: `00`
+- `metadata.desc.detail[0].nilai_tagihan`: `8000`
+
+Observed pay/status behavior:
+- `pay-pasca` was called after a stored successful inquiry using only stored `buyer_sku_code`, `customer_no`, and `ref_id`.
+- `pay-pasca` returned mocked `Pending` / `03` with `sn=S1234554321N`; stored amount remained `selling_price=11000`.
+- `status-pasca` rechecked the same `ref_id` and updated status to `Sukses` / `00`; stored payable amount remained `11000`.
+
+Observed PLN support:
+- `/api/digiflazz/v1/inquiry-pln` called the Buyer `/v1/inquiry-pln` path with `customer_no=1234554321`.
+- Safe stored/returned fields included `meter_no`, `subscriber_id`, `name`, `segment_power`, `status`, and `rc`.
+
+Secrets:
+- No Digiflazz API key, signatures, JWT secret, Supabase service-role key, or production token values are recorded here.
+
+Manual HTTP QA:
+- Ran a temporary 
+px tsx driver that started createApp(), registered a user, and exercised /api/digiflazz/inq-pasca, /api/digiflazz/pay-pasca, /api/digiflazz/status-pasca, and /api/digiflazz/v1/inquiry-pln over localhost HTTP.
+- Observed inquiry HTTP 201, pay HTTP 200, status HTTP 200 with final Sukses, and PLN inquiry HTTP 201.
+- Observed pay request used stored uyer_sku_code=pln, stored customer_no=530000000001, and stored ef_id=manual-ref-001; signature value intentionally omitted.

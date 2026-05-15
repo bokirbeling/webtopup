@@ -1,0 +1,16 @@
+Task 7 branding evidence
+
+Implemented:
+- Replaced visible source branding from BayarKu to Adnanpay in Frontend/index.html, Header, Footer, Features, AuthDashboard, AdminDashboard, frontend smoke test expectation, and panduan_adnanpay.md.
+- Kept internal bayarku.auth.session localStorage key and bayarku:navigate event unchanged to avoid breaking existing sessions/routes.
+
+Verification:
+- Search for BayarKu in source/docs/tests returned no matches outside generated deploy output.
+- Remaining generated-only match: deploy-adnanpay/frontend/dist/index.html.
+- npm test -- --run src/test/app.smoke.test.tsx
+- Result: 1 test file passed, 12 tests passed.
+
+Additional verification:
+- npm run typecheck (Frontend): passed.
+- npm run build (Frontend): passed.
+- npm test -- --run (Frontend): passed, 12 tests.

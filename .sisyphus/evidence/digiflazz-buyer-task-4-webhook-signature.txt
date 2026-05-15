@@ -1,0 +1,24 @@
+Digiflazz Buyer Task 4 - webhook signature/event evidence
+
+Implemented surface:
+- express.json() now captures raw request bytes for webhook HMAC verification.
+- When DIGIFLAZZ_WEBHOOK_SECRET is configured, /api/fulfillments/digiflazz/callback requires X-Hub-Signature: sha1=<hmac> computed with HMAC SHA1 over the raw request body.
+- Signature comparison uses constant-time timingSafeEqual when byte lengths match.
+- When no webhook secret is configured, unsigned callbacks continue to be accepted for backward compatibility.
+- X-Digiflazz-Event ping returns success before transaction event registration; create/update prepaid callbacks process normally; postpaid User-Agent deliveries are acknowledged as ignored without storing prepaid transaction events.
+- Stored webhook payload metadata preserves Digiflazz event, user-agent, rc, message, and status context without storing the signature header.
+
+Focused test evidence:
+- npm test -- --runTestsByPath src/modules/fulfillment/fulfillment.router.test.ts
+- Result: 1 suite passed, 9 tests passed.
+- Covered valid signature, invalid signature, missing signature with configured secret, unsigned acceptance without secret, ping no-store, postpaid ignored/no-store, and duplicate idempotency.
+
+Regression evidence:
+- npm test -- --silent
+- Result: 15 suites passed, 50 tests passed.
+
+Build/check evidence:
+- lsp_diagnostics: no diagnostics for changed backend TS files.
+- npm run lint: passed.
+- npm run typecheck: passed.
+- npm run build: passed.

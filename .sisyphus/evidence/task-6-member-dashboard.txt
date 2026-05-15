@@ -1,0 +1,22 @@
+Task 6 member dashboard evidence
+
+Route exercised:
+- /dashboard with a stored/authenticated member session in `Frontend/src/test/app.smoke.test.tsx`.
+
+Command evidence:
+- `npm test` from `Frontend/`: PASS, `src/test/app.smoke.test.tsx` collected normally and ran 9 tests.
+- Relevant passing test: `logs in, persists the backend token, loads dashboard state, and logs out`.
+- Relevant passing test: `loads persisted sessions, requests reseller status, and displays backend catalog prices`.
+- `npm run lint` from `Frontend/`: PASS, no ESLint errors or warnings after the hook dependency fix.
+- `npm run typecheck` from `Frontend/`: PASS, `AuthDashboard.tsx` nullable session errors are gone.
+- `npm run build` from `Frontend/`: PASS, Vite built production assets successfully.
+
+Observed behavior covered by tests:
+- Login posts to `http://localhost:3001/api/auth/login` and stores only the backend token/session JSON in `localStorage` key `bayarku.auth.session`.
+- Authenticated dashboard fetches `http://localhost:3001/api/auth/me`, `http://localhost:3001/api/account/status`, and `http://localhost:3001/api/catalog/products` with `Authorization: Bearer member-token`.
+- Dashboard renders current user email, role label, approved/requested reseller status, transaction history empty state, and catalog price text from backend `final_price_minor` (`Rp 10.500` / `Rp 9.700`).
+- Reseller request posts to `http://localhost:3001/api/account/reseller-request` with the stored bearer token and updates the visible status to `Menunggu review admin`.
+- Logout clears the stored session and returns to the auth panel.
+
+Browser screenshot note:
+- Text evidence is used instead of Playwright screenshots because this verification was completed through deterministic Vitest/jsdom route exercises plus lint/typecheck/build in this environment.

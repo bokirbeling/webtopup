@@ -1,5 +1,5 @@
-import { FormEvent, useState } from 'react';
-import { AlertCircle, CheckCircle2, ExternalLink, Gamepad2, Loader2, RefreshCw, Zap } from 'lucide-react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { AlertCircle, CheckCircle2, ExternalLink, Gamepad2, Loader2, RefreshCw, Search, Zap } from 'lucide-react';
 
 import { buildApiUrl, readApiError } from '../lib/api';
 
@@ -37,6 +37,115 @@ type PaymentResponse = Readonly<{
   token: string;
   redirect_url: string;
 }>;
+
+type CatalogProductResponse = Readonly<{
+  product: Readonly<{
+    id: string;
+    sku_digiflazz: string;
+    name: string;
+    category: string;
+    provider: string;
+    metadata?: Record<string, unknown>;
+  }>;
+  final_price_minor: number;
+  base_price_minor: number;
+  role_type: string;
+}>;
+
+type CatalogResponse = Readonly<{
+  products: CatalogProductResponse[];
+}>;
+
+type DisplayProduct = Readonly<{
+  key: string;
+  productId: string | null;
+  code: string;
+  name: string;
+  category: string;
+  provider: string;
+  amountMinor: number;
+  subtitle: string;
+  image: string;
+  color: string;
+  popular: boolean;
+}>;
+
+const categoryColors = [
+  'from-blue-600 to-blue-900',
+  'from-emerald-600 to-teal-900',
+  'from-orange-500 to-red-700',
+  'from-violet-500 to-slate-800',
+  'from-amber-500 to-slate-800',
+  'from-cyan-500 to-blue-800',
+];
+
+const categoryImageByKeyword = [
+  { pattern: /mobile\s*legends|mlbb|ml-/i, image: '/product-assets/mobile-legends.jpg' },
+  { pattern: /free\s*fire|\bff\b/i, image: '/product-assets/free-fire.jpg' },
+  { pattern: /genshin/i, image: '/product-assets/genshin-impact.jpg' },
+  { pattern: /pubg/i, image: '/product-assets/pubg-mobile.jpg' },
+  { pattern: /pln|listrik/i, image: '/product-assets/pln-token.png' },
+  { pattern: /gopay|go pay|e-money|emoney|wallet/i, image: '/product-assets/gopay-emoney.png' },
+  { pattern: /data|telkomsel|internet/i, image: '/product-assets/paket-data.png' },
+  { pattern: /voucher|google play/i, image: '/product-assets/voucher-digital.png' },
+];
+
+const fallbackCategoryImages = [
+  '/product-assets/mobile-legends.jpg',
+  '/product-assets/free-fire.jpg',
+  '/product-assets/pln-token.png',
+  '/product-assets/gopay-emoney.png',
+  '/product-assets/paket-data.png',
+  '/product-assets/voucher-digital.png',
+];
+
+function categoryIndex(category: string) {
+  return Math.abs([...category].reduce((total, char) => total + char.charCodeAt(0), 0)) % categoryColors.length;
+}
+
+function catalogProductToDisplay(item: CatalogProductResponse): DisplayProduct {
+  const index = categoryIndex(item.product.category);
+  const searchKey = `${item.product.name} ${item.product.category} ${item.product.provider} ${item.product.sku_digiflazz}`;
+  const stock = typeof item.product.metadata?.stock === 'number' ? `${item.product.metadata.stock} stok` : 'Produk Digiflazz';
+  const uploadedImage =
+    typeof item.product.metadata?.image_url === 'string'
+      ? item.product.metadata.image_url
+      : typeof item.product.metadata?.category_image_url === 'string'
+        ? item.product.metadata.category_image_url
+        : null;
+
+  return {
+    key: item.product.id,
+    productId: item.product.id,
+    code: item.product.sku_digiflazz,
+    name: item.product.name,
+    category: item.product.category,
+    provider: item.product.provider,
+    amountMinor: item.final_price_minor,
+    subtitle: `${item.product.provider} · ${stock}`,
+    image: uploadedImage ?? categoryImageByKeyword.find((entry) => entry.pattern.test(searchKey))?.image ?? fallbackCategoryImages[index],
+    color: categoryColors[index],
+    popular: item.role_type === 'seller' || item.final_price_minor <= 25000,
+  };
+}
+
+function fallbackProducts(): DisplayProduct[] {
+  return games.flatMap((game) =>
+    game.items.map((item) => ({
+      key: `${game.code}-${item.label}`,
+      productId: null,
+      code: `${game.code}-${item.label.toLowerCase().replace(/\s+/g, '-')}`,
+      name: `${game.name} ${item.label}`,
+      category: game.category,
+      provider: 'digiflazz',
+      amountMinor: item.amountMinor,
+      subtitle: `${game.players} transaksi / bulan`,
+      image: categoryImageByKeyword.find((entry) => entry.pattern.test(`${game.name} ${game.category}`))?.image ?? game.image,
+      color: game.color,
+      popular: game.popular,
+    }))
+  );
+}
 
 const games: GameProduct[] = [
   {
@@ -140,8 +249,12 @@ const games: GameProduct[] = [
 
 
 export default function GameTopUp() {
-  const [selectedGameIndex, setSelectedGameIndex] = useState(0);
-  const [selectedItemIndex, setSelectedItemIndex] = useState(0);
+  const [catalogProducts, setCatalogProducts] = useState<DisplayProduct[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [selectedProductKey, setSelectedProductKey] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState('Semua');
+  const [searchTerm, setSearchTerm] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [zoneId, setZoneId] = useState('');
   const [email, setEmail] = useState('');
@@ -150,8 +263,62 @@ export default function GameTopUp() {
   const [orderResult, setOrderResult] = useState<OrderResponse | null>(null);
   const [paymentResult, setPaymentResult] = useState<PaymentResponse | null>(null);
 
-  const selectedGame = games[selectedGameIndex];
-  const selectedItem = selectedGame.items[selectedItemIndex] ?? selectedGame.items[0];
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCatalog() {
+      setCatalogLoading(true);
+      setCatalogError(null);
+
+      try {
+        const response = await fetch(buildApiUrl('/api/catalog/products'));
+        if (!response.ok) {
+          throw new Error(await readApiError(response, 'Gagal memuat produk Digiflazz.'));
+        }
+
+        const body = (await response.json()) as CatalogResponse;
+        const mappedProducts = Array.isArray(body.products) ? body.products.map(catalogProductToDisplay) : [];
+
+        if (isMounted) {
+          setCatalogProducts(mappedProducts);
+          setSelectedProductKey((current) => current ?? mappedProducts[0]?.key ?? null);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setCatalogError(error instanceof Error ? error.message : 'Produk Digiflazz belum dapat dimuat.');
+        }
+      } finally {
+        if (isMounted) {
+          setCatalogLoading(false);
+        }
+      }
+    }
+
+    void loadCatalog();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const products = catalogProducts.length > 0 ? catalogProducts : fallbackProducts();
+  const categories = useMemo(() => ['Semua', ...Array.from(new Set(products.map((product) => product.category))).sort()], [products]);
+  const filteredProducts = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return products.filter((product) => {
+      const matchesCategory = selectedCategory === 'Semua' || product.category === selectedCategory;
+      const matchesSearch =
+        normalizedSearch.length === 0 ||
+        product.name.toLowerCase().includes(normalizedSearch) ||
+        product.code.toLowerCase().includes(normalizedSearch) ||
+        product.provider.toLowerCase().includes(normalizedSearch);
+
+      return matchesCategory && matchesSearch;
+    });
+  }, [products, searchTerm, selectedCategory]);
+
+  const selectedProduct = products.find((product) => product.key === selectedProductKey) ?? filteredProducts[0] ?? products[0];
   const paymentStatus = paymentResult === null ? orderResult?.status : `${orderResult?.status} / ${paymentResult.status}`;
 
   const submitCheckout = async () => {
@@ -168,14 +335,16 @@ export default function GameTopUp() {
         },
         body: JSON.stringify({
           customer_ref: `${customerId.trim()}:${zoneId.trim()}`,
-          product_code: `${selectedGame.code}-${selectedItem.label.toLowerCase().replace(/\s+/g, '-')}`,
-          provider: 'digiflazz',
-          amount_minor: selectedItem.amountMinor,
+          product_id: selectedProduct.productId ?? undefined,
+          product_code: selectedProduct.code,
+          provider: selectedProduct.provider,
+          amount_minor: selectedProduct.amountMinor,
           currency: 'IDR',
           metadata: {
             source: 'web_checkout',
-            game_name: selectedGame.name,
-            item_label: selectedItem.label,
+            product_name: selectedProduct.name,
+            product_category: selectedProduct.category,
+            sku_digiflazz: selectedProduct.code,
             customer_email: email.trim(),
             zone_id: zoneId.trim(),
           },
@@ -227,33 +396,70 @@ export default function GameTopUp() {
               <Gamepad2 size={20} className="text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Top Up Game</h2>
-              <p className="text-slate-400 text-sm">Proses instan, harga terjangkau</p>
+              <h2 className="text-xl font-bold text-white">Katalog Produk Digiflazz</h2>
+              <p className="text-slate-400 text-sm">Produk dari database, rapi per kategori</p>
             </div>
           </div>
           <button className="text-sm font-medium text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1">
-            Semua Game →
+            {catalogProducts.length > 0 ? `${catalogProducts.length} Produk Live` : 'Mode Demo'} →
           </button>
+        </div>
+
+        <div className="mb-6 rounded-3xl border border-white/10 bg-white/5 p-4 shadow-xl shadow-black/10 backdrop-blur">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input
+                data-testid="catalog-search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Cari produk, SKU, provider..."
+                className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-amber-300/70 focus:ring-4 focus:ring-amber-300/10"
+              />
+            </div>
+            <select
+              data-testid="catalog-category-select"
+              value={selectedCategory}
+              onChange={(event) => {
+                setSelectedCategory(event.target.value);
+                setSelectedProductKey(null);
+              }}
+              className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm font-semibold text-white outline-none transition focus:border-amber-300/70 focus:ring-4 focus:ring-amber-300/10"
+            >
+              {categories.map((category) => (
+                <option key={category} value={category} className="bg-slate-950 text-white">
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+            <span className="rounded-full bg-white/10 px-3 py-1">{filteredProducts.length} produk tampil</span>
+            <span className="rounded-full bg-white/10 px-3 py-1">{categories.length - 1} kategori</span>
+            {catalogLoading && <span className="rounded-full bg-amber-300/20 px-3 py-1 text-amber-200">Memuat API...</span>}
+            {catalogError && <span className="rounded-full bg-rose-400/20 px-3 py-1 text-rose-100">{catalogError} Mode demo aktif.</span>}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-            {games.map((game, gameIndex) => (
+            {filteredProducts.map((product, productIndex) => (
               <div
-                key={game.id}
-                data-testid={gameIndex === 0 ? 'product-card-0' : undefined}
+                key={product.key}
+                data-testid={productIndex === 0 ? 'product-card-0' : undefined}
                 className={`group relative rounded-2xl overflow-hidden border hover:shadow-xl hover:shadow-black/30 hover:-translate-y-1 transition-all duration-300 ${
-                  selectedGameIndex === gameIndex ? 'border-amber-300 shadow-xl shadow-amber-500/10' : 'border-white/10 hover:border-white/20'
+                  selectedProduct?.key === product.key ? 'border-amber-300 shadow-xl shadow-amber-500/10' : 'border-white/10 hover:border-white/20'
                 }`}
               >
-                <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-80`} />
+                <div className={`absolute inset-0 bg-gradient-to-br ${product.color} opacity-80`} />
                 <img
-                  src={game.image}
-                  alt={game.name}
-                  className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-30 group-hover:scale-105 transition-all duration-500"
+                  src={product.image}
+                  alt={product.name}
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full object-cover opacity-25 transition-all duration-500 group-hover:scale-105 group-hover:opacity-35"
                 />
 
-                {game.popular && (
+                {product.popular && (
                   <div className="absolute top-3 right-3 z-10 flex items-center gap-1 bg-amber-400 text-slate-900 text-[10px] font-bold px-2 py-1 rounded-full">
                     <Zap size={10} />
                     POPULER
@@ -263,43 +469,26 @@ export default function GameTopUp() {
                 <div className="relative z-10 p-5">
                   <div className="mb-4">
                     <span className="text-xs font-medium text-white/60 bg-white/10 px-2 py-0.5 rounded-full">
-                      {game.category}
+                      {product.category}
                     </span>
-                    <h3 className="text-white font-bold text-lg mt-2">{game.name}</h3>
-                    <p className="text-white/50 text-xs">{game.players} transaksi / bulan</p>
+                    <h3 className="text-white font-bold text-lg mt-2">{product.name}</h3>
+                    <p className="text-white/50 text-xs">{product.subtitle}</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    {game.items.map((item, itemIndex) => {
-                      const isSelected = selectedGameIndex === gameIndex && selectedItemIndex === itemIndex;
-
-                      return (
-                        <button
-                          key={item.label}
-                          type="button"
-                          onClick={() => {
-                            setSelectedGameIndex(gameIndex);
-                            setSelectedItemIndex(itemIndex);
-                          }}
-                          className={`border text-white text-xs font-medium py-2 px-3 rounded-xl transition-all hover:scale-105 ${
-                            isSelected ? 'bg-amber-400/25 border-amber-300/70' : 'bg-white/10 hover:bg-white/20 border-white/10 hover:border-white/30'
-                          }`}
-                        >
-                          {item.label}
-                        </button>
-                      );
-                    })}
+                  <div className="rounded-2xl border border-white/10 bg-white/10 p-3 text-white">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Harga jual</p>
+                    <p className="mt-1 text-xl font-black">{formatRupiah(product.amountMinor)}</p>
+                    <p className="mt-1 text-xs text-white/55">SKU: {product.code}</p>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedGameIndex(gameIndex);
-                      setSelectedItemIndex(0);
+                      setSelectedProductKey(product.key);
                     }}
                     className="mt-4 w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white font-semibold text-sm py-2.5 rounded-xl transition-all border border-white/20 hover:border-white/40"
                   >
-                    Pilih Nominal →
+                    Pilih Produk →
                   </button>
                 </div>
               </div>
@@ -312,8 +501,8 @@ export default function GameTopUp() {
                 <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full tracking-wider uppercase">
                   Checkout
                 </span>
-                <h3 className="text-xl font-extrabold text-slate-900 mt-3">{selectedGame.name}</h3>
-                <p className="text-sm text-slate-500">{selectedItem.label} · {formatRupiah(selectedItem.amountMinor)}</p>
+                <h3 className="text-xl font-extrabold text-slate-900 mt-3">{selectedProduct.name}</h3>
+                <p className="text-sm text-slate-500">{selectedProduct.category} · {formatRupiah(selectedProduct.amountMinor)}</p>
               </div>
               <div className="w-11 h-11 rounded-2xl bg-slate-900 text-amber-300 flex items-center justify-center">
                 <Zap size={20} />

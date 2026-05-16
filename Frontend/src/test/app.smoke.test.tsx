@@ -234,6 +234,12 @@ describe('App smoke test', () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
+        new Response(JSON.stringify({ products: [catalogProduct()] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
             order_id: 'order-1001',
@@ -269,23 +275,27 @@ describe('App smoke test', () => {
     expect(screen.getByTestId('product-card-0')).toBeDefined();
     expect(screen.getByTestId('order-id')).toHaveTextContent('order-1001');
     expect(screen.getByTestId('payment-status')).toHaveTextContent('pending_payment / pending');
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://localhost:3001/api/orders');
-    expect(fetchMock.mock.calls[1]?.[0]).toBe('http://localhost:3001/api/payments/midtrans/initialize');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://localhost:3001/api/catalog/products');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('http://localhost:3001/api/orders');
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('http://localhost:3001/api/payments/midtrans/initialize');
   });
 
   it('shows checkout error and retry when order creation fails', async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          error: {
-            code: 'ORDER_CREATE_FAILED',
-            message: 'Failed to create order.',
-          },
-        }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } },
-      ),
-    );
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ products: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'ORDER_CREATE_FAILED',
+              message: 'Failed to create order.',
+            },
+          }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
     vi.stubGlobal('fetch', fetchMock);
 
     render(<App />);
@@ -299,7 +309,7 @@ describe('App smoke test', () => {
 
     fireEvent.click(screen.getByTestId('checkout-retry'));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
   });
 
   it('opens invoice route and polls status progression to success', async () => {
@@ -351,6 +361,7 @@ describe('App smoke test', () => {
   it('covers guest checkout then terminal invoice success without live network', async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ products: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({

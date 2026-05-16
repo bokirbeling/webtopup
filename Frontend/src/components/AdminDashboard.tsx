@@ -118,7 +118,13 @@ type ProductFormState = Readonly<{
   category: string;
   provider: string;
   base_price_minor: string;
+  image_url: string;
   is_active: boolean;
+}>;
+
+type CategoryImageFormState = Readonly<{
+  category: string;
+  image_url: string;
 }>;
 
 type PricingFormState = Readonly<{
@@ -140,7 +146,13 @@ const emptyProductForm: ProductFormState = {
   category: '',
   provider: 'digiflazz',
   base_price_minor: '',
+  image_url: '',
   is_active: true,
+};
+
+const emptyCategoryImageForm: CategoryImageFormState = {
+  category: '',
+  image_url: '',
 };
 
 const emptyPricingForm: PricingFormState = {
@@ -205,8 +217,17 @@ function productPayload(form: ProductFormState) {
     provider: form.provider,
     base_price_minor: Number(form.base_price_minor),
     is_active: form.is_active,
-    metadata: {},
+    metadata: form.image_url.trim() === '' ? {} : { image_url: form.image_url.trim(), category_image_url: form.image_url.trim() },
   };
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
+    reader.readAsDataURL(file);
+  });
 }
 
 function pricingPayload(form: PricingFormState) {
@@ -248,6 +269,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [productForm, setProductForm] = useState<ProductFormState>(emptyProductForm);
+  const [categoryImageForm, setCategoryImageForm] = useState<CategoryImageFormState>(emptyCategoryImageForm);
   const [pricingForm, setPricingForm] = useState<PricingFormState>(emptyPricingForm);
 
   const token = session?.token ?? null;
@@ -257,6 +279,7 @@ export default function AdminDashboard() {
   const resellerRequests = useMemo(() => users.filter((user) => user.reseller_status === 'requested').length, [users]);
   const monitoredTransactions = monitoring?.transactions.slice(0, 4) ?? [];
   const monitoredWebhooks = monitoring?.webhooks.slice(0, 4) ?? [];
+  const productCategories = useMemo(() => Array.from(new Set(products.map((product) => product.category))).sort(), [products]);
 
   const loadAdminData = useCallback(async (activeToken: string) => {
     setIsLoading(true);
@@ -363,6 +386,47 @@ export default function AdminDashboard() {
     } finally {
       setIsMutating(false);
     }
+  };
+
+  const uploadCategoryImage = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (token === null || !isAdmin || categoryImageForm.category.trim() === '' || categoryImageForm.image_url.trim() === '') return;
+    setIsMutating(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const categoryProducts = products.filter((product) => product.category === categoryImageForm.category);
+      const updatedProducts = await Promise.all(
+        categoryProducts.map((product) =>
+          readJsonApi<AdminProductResponse>(`/api/admin/catalog/products/${product.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...bearerHeaders(token) },
+            body: JSON.stringify({
+              metadata: {
+                ...product.metadata,
+                image_url: categoryImageForm.image_url.trim(),
+                category_image_url: categoryImageForm.image_url.trim(),
+                image_source: 'admin_category_upload',
+              },
+            }),
+          }),
+        ),
+      );
+      setProducts((currentProducts) => updatedProducts.reduce((nextProducts, payload) => updateProductList(nextProducts, payload.product), currentProducts));
+      setCategoryImageForm(emptyCategoryImageForm);
+      setNotice(`Gambar kategori ${categoryImageForm.category} diterapkan ke ${updatedProducts.length} produk.`);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Gambar kategori gagal disimpan.');
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleCategoryImageFile = async (file: File | undefined) => {
+    if (file === undefined) return;
+    const dataUrl = await fileToDataUrl(file);
+    setCategoryImageForm((current) => ({ ...current, image_url: dataUrl }));
   };
 
   const createPricingRule = async (event: FormEvent<HTMLFormElement>) => {
@@ -596,10 +660,29 @@ export default function AdminDashboard() {
               <input aria-label="Kategori produk" value={productForm.category} onChange={(event) => setProductForm({ ...productForm, category: event.target.value })} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100" placeholder="Kategori" required />
               <input aria-label="Provider produk" value={productForm.provider} onChange={(event) => setProductForm({ ...productForm, provider: event.target.value })} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100" placeholder="Provider" required />
               <input aria-label="Harga dasar produk" type="number" min="0" value={productForm.base_price_minor} onChange={(event) => setProductForm({ ...productForm, base_price_minor: event.target.value })} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100" placeholder="Harga dasar" required />
+              <input aria-label="URL gambar produk" value={productForm.image_url} onChange={(event) => setProductForm({ ...productForm, image_url: event.target.value })} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100" placeholder="URL/base64 gambar opsional" />
               <button type="submit" disabled={isMutating} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-extrabold text-white transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300" data-testid="admin-product-create">{isMutating ? <Loader2 size={17} className="animate-spin" /> : <Boxes size={17} />} Buat produk</button>
             </form>
+            <form onSubmit={uploadCategoryImage} className="mt-5 rounded-3xl border border-amber-100 bg-amber-50/70 p-4" data-testid="admin-category-image-form">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                <label className="flex-1 text-sm font-bold text-slate-700">
+                  Kategori gambar
+                  <select value={categoryImageForm.category} onChange={(event) => setCategoryImageForm({ ...categoryImageForm, category: event.target.value })} className="mt-1 w-full rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100" required>
+                    <option value="">Pilih kategori</option>
+                    {productCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                </label>
+                <label className="flex-1 text-sm font-bold text-slate-700">
+                  Upload gambar
+                  <input type="file" accept="image/*" onChange={(event) => void handleCategoryImageFile(event.target.files?.[0])} className="mt-1 w-full rounded-2xl border border-amber-200 bg-white px-4 py-2 text-sm outline-none file:mr-3 file:rounded-xl file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-xs file:font-bold file:text-white" />
+                </label>
+                <input aria-label="URL gambar kategori" value={categoryImageForm.image_url} onChange={(event) => setCategoryImageForm({ ...categoryImageForm, image_url: event.target.value })} className="flex-1 rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100" placeholder="Atau paste URL/base64" />
+                <button type="submit" disabled={isMutating || categoryImageForm.category === '' || categoryImageForm.image_url === ''} className="rounded-2xl bg-amber-400 px-5 py-3 text-sm font-extrabold text-slate-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:bg-slate-200" data-testid="admin-category-image-save">Simpan gambar kategori</button>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">Gambar diterapkan ke semua produk dalam kategori yang dipilih. Di frontend semua gambar dipaksa rasio sama dan object-cover agar rapi di desktop/mobile.</p>
+            </form>
             <div className="mt-5 space-y-3">
-              {products.map((product) => <article key={product.id} className="rounded-2xl border border-slate-200 p-4" data-testid={`admin-product-${product.id}`}><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="font-extrabold text-slate-900">{product.name}</h3><p className="text-sm text-slate-500">{product.sku_digiflazz} · {product.category} · {formatRupiah(product.base_price_minor)}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => void updateProduct(product, { name: product.name + ' Updated' })} disabled={isMutating} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-60" data-testid={`admin-product-update-${product.id}`}>Update</button><button type="button" onClick={() => void updateProduct(product, { is_active: !product.is_active })} disabled={isMutating} className="inline-flex items-center gap-1 rounded-xl bg-amber-400 px-3 py-2 text-xs font-extrabold text-slate-950 transition-all hover:bg-amber-300 disabled:opacity-60" data-testid={`admin-product-toggle-${product.id}`}><ToggleLeft size={14} />{product.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button></div></div></article>)}
+              {products.map((product) => <article key={product.id} className="rounded-2xl border border-slate-200 p-4" data-testid={`admin-product-${product.id}`}><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3">{typeof product.metadata.image_url === 'string' && <img src={product.metadata.image_url} alt={product.name} className="h-14 w-14 rounded-2xl object-cover" loading="lazy" />}<div><h3 className="font-extrabold text-slate-900">{product.name}</h3><p className="text-sm text-slate-500">{product.sku_digiflazz} · {product.category} · {formatRupiah(product.base_price_minor)}</p></div></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => void updateProduct(product, { name: product.name + ' Updated' })} disabled={isMutating} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-60" data-testid={`admin-product-update-${product.id}`}>Update</button><button type="button" onClick={() => void updateProduct(product, { is_active: !product.is_active })} disabled={isMutating} className="inline-flex items-center gap-1 rounded-xl bg-amber-400 px-3 py-2 text-xs font-extrabold text-slate-950 transition-all hover:bg-amber-300 disabled:opacity-60" data-testid={`admin-product-toggle-${product.id}`}><ToggleLeft size={14} />{product.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button></div></div></article>)}
             </div>
           </section>
 

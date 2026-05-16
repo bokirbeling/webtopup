@@ -10,3 +10,9 @@ Frontend/dist/
 .sisyphus/notepads/runtime-model-timeout-unblock/
 # CocoIndex Code (ccc)
 /.cocoindex_code/
+
+# Local private operational secrets
+local/private/
+
+# Local-only reference images from approved scraping
+docs/reference-assets/

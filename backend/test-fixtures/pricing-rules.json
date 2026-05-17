@@ -1,0 +1,18 @@
+[
+  {
+    "scope_type": "global",
+    "role_type": "pengguna",
+    "markup_fixed": 0,
+    "markup_percentage": 0,
+    "priority": 100,
+    "is_active": true
+  },
+  {
+    "scope_type": "global",
+    "role_type": "seller",
+    "markup_fixed": -500,
+    "markup_percentage": 0,
+    "priority": 200,
+    "is_active": true
+  }
+]

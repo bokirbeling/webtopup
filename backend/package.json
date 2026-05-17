@@ -10,6 +10,11 @@
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "jest --runInBand",
+    "test:feature": "playwright test --config=playwright.config.ts",
+    "test:feature:guest": "playwright test playwright-tests/guest.spec.ts --config=playwright.config.ts",
+    "test:feature:reseller": "playwright test playwright-tests/reseller.spec.ts --config=playwright.config.ts",
+    "test:feature:admin": "playwright test playwright-tests/admin.spec.ts --config=playwright.config.ts",
+    "test:feature:backend": "tsx playwright-tests/run-backend-checks.ts",
     "start": "node dist/index.js"
   },
   "keywords": [],
@@ -27,6 +32,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.55.0",
     "@types/express": "^5.0.3",
     "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",

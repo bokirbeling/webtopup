@@ -1,0 +1,2 @@
+cleanupTestData invoked at 2026-05-17T00:19:39.936Z
+No destructive cleanup endpoint is available in demo mode, so generated test identities are recorded only and left isolated in demo_ tables.

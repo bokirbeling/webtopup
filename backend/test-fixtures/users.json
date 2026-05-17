@@ -1,0 +1,17 @@
+{
+  "guest": {
+    "email": null,
+    "password": null,
+    "role": "pengguna"
+  },
+  "reseller": {
+    "email": "__GENERATED__",
+    "password": "__GENERATED__",
+    "role": "seller"
+  },
+  "admin": {
+    "email": "__FROM_ENV__",
+    "password": "__FROM_ENV__",
+    "role": "admin"
+  }
+}

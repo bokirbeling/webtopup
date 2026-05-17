@@ -1,0 +1,18 @@
+[
+  {
+    "label": "guest-gopay10",
+    "product_code": "gopay10",
+    "provider": "digiflazz",
+    "customer_ref": "081234567890",
+    "buyer_email": null,
+    "notes": "Guest checkout fixture for demo environment"
+  },
+  {
+    "label": "guest-telkomsel5",
+    "product_code": "telkomsel5",
+    "provider": "digiflazz",
+    "customer_ref": "081298765432",
+    "buyer_email": null,
+    "notes": "Alternative guest checkout fixture for demo environment"
+  }
+]

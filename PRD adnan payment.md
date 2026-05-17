@@ -1,4 +1,4 @@
-# PRD — Project Requirements Document
+b# PRD — Project Requirements Document
 
 ## 1. Overview
 Adnanpay PPOB Web saat ini telah mencapai tahap **MVP Fungsional** dengan alur transaksi inti yang sudah berjalan penuh. Aplikasi sudah mampu menangani guest checkout, inisialisasi pembayaran Midtrans, verifikasi webhook, fulfillment otomatis via Digiflazz, serta halaman status invoice real-time. Fokus proyek lanjutan ini bukan membangun dari nol, melainkan **menyempurnakan dan mengembangkan** sistem yang sudah ada menjadi platform berjenjang yang mendukung manajemen katalog produk, otentikasi multi-peran, dan skema harga dinamis untuk reseller. 

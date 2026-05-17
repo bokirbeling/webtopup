@@ -12,6 +12,8 @@ import { createProductUploadService } from "./modules/admin/product-upload.servi
 import { createAdminMonitoringRouter, createMemberTransactionsRouter } from "./modules/dashboard/dashboard.router";
 import { createDashboardService, type DashboardService } from "./modules/dashboard/dashboard.service";
 import { createAdminDigiflazzOperationsRouter } from "./modules/dashboard/digiflazz-operations.router";
+import { createDashboardContentRouter } from "./routes/dashboard.router";
+import { SupabaseDashboardContentRepository } from "./modules/dashboard/dashboard-content.repository";
 import { createAdminAuditRouter, createProviderAuditRouter } from "./modules/audit/provider-audit.router";
 import { InMemoryProviderAuditRepository, SupabaseProviderAuditRepository } from "./modules/audit/provider-audit.repository";
 import { type ProviderAuditRepository } from "./modules/audit/provider-audit.types";
@@ -154,6 +156,15 @@ export function createApp(dependencies: AppDependencies) {
       : new InMemoryCatalogRepository()
   );
   const productUploadService = createProductUploadService(catalogRepository);
+
+  // Dashboard Content Repository
+  const dashboardContentRepository = dependencies.supabaseConfig
+    ? new SupabaseDashboardContentRepository({
+        supabaseUrl: dependencies.supabaseConfig.url,
+        supabaseServiceRoleKey: dependencies.supabaseConfig.serviceRoleKey,
+        tablePrefix
+      })
+    : null;
 
   const priceListSyncService = createDigiflazzPriceListSyncService({
     repository: catalogRepository,
@@ -301,6 +312,12 @@ export function createApp(dependencies: AppDependencies) {
     }));
 
     app.use(fullPath("/api/catalog"), createCatalogRouter({ catalogService, authService }));
+    if (dashboardContentRepository) {
+      app.use(fullPath("/api/dashboard"), createDashboardContentRouter({ 
+        repository: dashboardContentRepository, 
+        authService 
+      }));
+    }
     app.use(fullPath("/api/orders"), createOrdersRouter({ orderService, authService }));
     app.use(fullPath("/api/payments"), createPaymentRouter({ 
       paymentService

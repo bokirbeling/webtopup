@@ -15,7 +15,11 @@
     "test:feature:reseller": "playwright test playwright-tests/reseller.spec.ts --config=playwright.config.ts",
     "test:feature:admin": "playwright test playwright-tests/admin.spec.ts --config=playwright.config.ts",
     "test:feature:backend": "tsx playwright-tests/run-backend-checks.ts",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "scrape-products": "tsx src/scripts/scrape-digiflazz-products.ts",
+    "import-products": "tsx src/scripts/import-digiflazz-products.ts",
+    "import-all-batches": "tsx src/scripts/import-all-batches.ts",
+    "download-images": "tsx src/scripts/download-product-images.ts"
   },
   "keywords": [],
   "author": "",
@@ -30,6 +34,7 @@
     "express-rate-limit": "^8.5.2",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^8.0.7",
+    "pg": "^8.20.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

@@ -77,11 +77,30 @@ export async function createTestOrder(request: APIRequestContext, overrides?: Pa
 
   expect(product).toBeDefined();
 
+  const productCode = overrides?.product_code ?? baseOrder.product_code;
+  const catalog = await apiJson<{
+    products?: Array<{
+      product: { sku_digiflazz: string };
+      final_price_minor?: number;
+      role_price_minor?: number;
+      base_price_minor?: number;
+    }>;
+  }>(request, '/api/catalog/products');
+  const catalogProduct = (catalog.data?.products ?? []).find((entry) => entry.product.sku_digiflazz === productCode);
+
+  expect(catalogProduct).toBeDefined();
+
+  const amountMinor = catalogProduct?.final_price_minor ?? catalogProduct?.role_price_minor ?? catalogProduct?.base_price_minor;
+
+  expect(amountMinor).toBeDefined();
+
   const payload = {
-    product_code: overrides?.product_code ?? baseOrder.product_code,
+    product_code: productCode,
     provider: overrides?.provider ?? baseOrder.provider,
     customer_ref: overrides?.customer_ref ?? baseOrder.customer_ref,
     buyer_email: overrides?.buyer_email ?? baseOrder.buyer_email,
+    amount_minor: amountMinor,
+    currency: 'IDR',
   };
 
   const order = await apiJson<{ order_id: string; invoice_code: string; status: string }>(request, '/api/orders', {

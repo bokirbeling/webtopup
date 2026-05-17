@@ -74,18 +74,18 @@ export default function Header() {
             <button className="hidden sm:flex p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-all">
               <ShoppingCart size={18} />
             </button>
-            <a href="/dashboard" className="hidden sm:block px-3 py-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg text-sm font-medium transition-all">
+            <a href="/demo/dashboard" className="hidden sm:block px-3 py-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg text-sm font-medium transition-all">
               Dashboard
             </a>
-            <a href="/admin" className="hidden sm:block px-3 py-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg text-sm font-medium transition-all">
+            <a href="/demo/admin" className="hidden sm:block px-3 py-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg text-sm font-medium transition-all">
               Admin
             </a>
-            <a href="/dashboard" className="hidden sm:block px-3 py-1.5 border border-amber-400/70 text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-400/10 transition-all">
-              Masuk
-            </a>
-            <a href="/dashboard" className="hidden sm:block px-3 py-1.5 bg-amber-400 text-slate-900 rounded-lg text-sm font-bold hover:bg-amber-300 transition-all">
-              Daftar
-            </a>
+            <a href="/demo/dashboard" className="hidden sm:block px-3 py-1.5 border border-amber-400/70 text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-400/10 transition-all">
+                Masuk
+              </a>
+            <a href="/demo/dashboard" className="hidden sm:block px-3 py-1.5 bg-amber-400 text-slate-900 rounded-lg text-sm font-bold hover:bg-amber-300 transition-all">
+                Daftar
+              </a>
             <button
               className="lg:hidden p-2 text-slate-300 hover:text-white"
               onClick={() => setMobileOpen(!mobileOpen)}
@@ -108,19 +108,19 @@ export default function Header() {
               {label}
             </button>
           ))}
-          <a href="/dashboard" className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all text-sm font-medium">
+          <a href="/demo/dashboard" className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all text-sm font-medium">
             Dashboard
-          </a>
-          <a href="/admin" className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all text-sm font-medium">
-            Admin
-          </a>
-          <div className="flex gap-2 pt-2">
-            <a href="/dashboard" className="flex-1 py-2 border border-amber-400/70 text-amber-400 rounded-lg text-sm font-medium text-center">
-              Masuk
             </a>
-            <a href="/dashboard" className="flex-1 py-2 bg-amber-400 text-slate-900 rounded-lg text-sm font-bold text-center">
-              Daftar
+            <a href="/demo/admin" className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all text-sm font-medium">
+              Admin
             </a>
+            <div className="flex gap-2 pt-2">
+            <a href="/demo/dashboard" className="flex-1 py-2 border border-amber-400/70 text-amber-400 rounded-lg text-sm font-medium text-center">
+                Masuk
+              </a>
+            <a href="/demo/dashboard" className="flex-1 py-2 bg-amber-400 text-slate-900 rounded-lg text-sm font-bold text-center">
+                Daftar
+              </a>
           </div>
         </div>
       )}

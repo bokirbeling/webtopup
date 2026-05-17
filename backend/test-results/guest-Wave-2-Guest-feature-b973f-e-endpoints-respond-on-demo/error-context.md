@@ -12,7 +12,9 @@
 # Error details
 
 ```
-Error: createTestOrder failed: 400 {"error":{"code":"VALIDATION_ERROR","message":"Invalid order payload.","details":[{"field":"amount_minor","message":"amount_minor is required and must be a positive integer."}]}}
+Error: expect(received).toBeDefined()
+
+Received: undefined
 ```
 
 # Page snapshot
@@ -175,60 +177,79 @@ Error: createTestOrder failed: 400 {"error":{"code":"VALIDATION_ERROR","message"
   77  | 
   78  |   expect(product).toBeDefined();
   79  | 
-  80  |   const payload = {
-  81  |     product_code: overrides?.product_code ?? baseOrder.product_code,
-  82  |     provider: overrides?.provider ?? baseOrder.provider,
-  83  |     customer_ref: overrides?.customer_ref ?? baseOrder.customer_ref,
-  84  |     buyer_email: overrides?.buyer_email ?? baseOrder.buyer_email,
-  85  |   };
-  86  | 
-  87  |   const order = await apiJson<{ order_id: string; invoice_code: string; status: string }>(request, '/api/orders', {
-  88  |     method: 'POST',
-  89  |     headers: { 'content-type': 'application/json' },
-  90  |     data: payload,
-  91  |   });
+  80  |   const productCode = overrides?.product_code ?? baseOrder.product_code;
+  81  |   const catalog = await apiJson<{
+  82  |     products?: Array<{
+  83  |       product: { sku_digiflazz: string };
+  84  |       final_price_minor?: number;
+  85  |       role_price_minor?: number;
+  86  |       base_price_minor?: number;
+  87  |     }>;
+  88  |   }>(request, '/api/catalog/products');
+  89  |   const catalogProduct = (catalog.data?.products ?? []).find((entry) => entry.product.sku_digiflazz === productCode);
+  90  | 
+> 91  |   expect(catalogProduct).toBeDefined();
+      |                          ^ Error: expect(received).toBeDefined()
   92  | 
-  93  |   if (!order.response.ok()) {
-> 94  |     throw new Error(`createTestOrder failed: ${order.response.status()} ${order.text}`);
-      |           ^ Error: createTestOrder failed: 400 {"error":{"code":"VALIDATION_ERROR","message":"Invalid order payload.","details":[{"field":"amount_minor","message":"amount_minor is required and must be a positive integer."}]}}
-  95  |   }
+  93  |   const amountMinor = catalogProduct?.final_price_minor ?? catalogProduct?.role_price_minor ?? catalogProduct?.base_price_minor;
+  94  | 
+  95  |   expect(amountMinor).toBeDefined();
   96  | 
-  97  |   await fs.writeFile(path.join(runtimeDir, `order-${order.data.invoice_code}.json`), JSON.stringify({ payload, order: order.data }, null, 2));
-  98  |   return order.data;
-  99  | }
-  100 | 
-  101 | export async function cleanupTestData() {
-  102 |   await ensureEvidenceDirs();
-  103 |   await appendEvidence('feature-test-fixtures.txt', [
-  104 |     `cleanupTestData invoked at ${new Date().toISOString()}`,
-  105 |     'No destructive cleanup endpoint is available in demo mode, so generated test identities are recorded only and left isolated in demo_ tables.',
-  106 |   ]);
-  107 | }
-  108 | 
-  109 | export async function loginAsReseller(page: Page, email: string, password: string) {
-  110 |   await page.goto('/dashboard');
-  111 |   await page.getByLabel('Email').fill(email);
-  112 |   await page.getByLabel('Password').fill(password);
-  113 |   await page.getByRole('button', { name: /masuk ke dashboard/i }).click();
-  114 | }
+  97  |   const payload = {
+  98  |     product_code: productCode,
+  99  |     provider: overrides?.provider ?? baseOrder.provider,
+  100 |     customer_ref: overrides?.customer_ref ?? baseOrder.customer_ref,
+  101 |     buyer_email: overrides?.buyer_email ?? baseOrder.buyer_email,
+  102 |     amount_minor: amountMinor,
+  103 |     currency: 'IDR',
+  104 |   };
+  105 | 
+  106 |   const order = await apiJson<{ order_id: string; invoice_code: string; status: string }>(request, '/api/orders', {
+  107 |     method: 'POST',
+  108 |     headers: { 'content-type': 'application/json' },
+  109 |     data: payload,
+  110 |   });
+  111 | 
+  112 |   if (!order.response.ok()) {
+  113 |     throw new Error(`createTestOrder failed: ${order.response.status()} ${order.text}`);
+  114 |   }
   115 | 
-  116 | export async function loginAsAdmin(page: Page, email: string, password: string) {
-  117 |   await page.goto('/admin');
-  118 |   await page.getByLabel('Email').fill(email);
-  119 |   await page.getByLabel('Password').fill(password);
-  120 |   await page.getByRole('button', { name: /masuk admin/i }).click();
-  121 | }
-  122 | 
-  123 | export async function selectProduct(page: Page, productCode: string) {
-  124 |   const card = page.locator(`[data-product-code="${productCode}"]`).first();
-  125 |   if (await card.count()) {
-  126 |     await card.click();
-  127 |     return;
-  128 |   }
-  129 | 
-  130 |   await page.getByPlaceholder(/cari layanan, operator, atau nama game/i).fill(productCode);
-  131 |   const productText = productCode.toLowerCase().includes('gopay') ? /gopay/i : /telkomsel/i;
-  132 |   await page.getByText(productText).first().click();
+  116 |   await fs.writeFile(path.join(runtimeDir, `order-${order.data.invoice_code}.json`), JSON.stringify({ payload, order: order.data }, null, 2));
+  117 |   return order.data;
+  118 | }
+  119 | 
+  120 | export async function cleanupTestData() {
+  121 |   await ensureEvidenceDirs();
+  122 |   await appendEvidence('feature-test-fixtures.txt', [
+  123 |     `cleanupTestData invoked at ${new Date().toISOString()}`,
+  124 |     'No destructive cleanup endpoint is available in demo mode, so generated test identities are recorded only and left isolated in demo_ tables.',
+  125 |   ]);
+  126 | }
+  127 | 
+  128 | export async function loginAsReseller(page: Page, email: string, password: string) {
+  129 |   await page.goto('/dashboard');
+  130 |   await page.getByLabel('Email').fill(email);
+  131 |   await page.getByLabel('Password').fill(password);
+  132 |   await page.getByRole('button', { name: /masuk ke dashboard/i }).click();
   133 | }
   134 | 
+  135 | export async function loginAsAdmin(page: Page, email: string, password: string) {
+  136 |   await page.goto('/admin');
+  137 |   await page.getByLabel('Email').fill(email);
+  138 |   await page.getByLabel('Password').fill(password);
+  139 |   await page.getByRole('button', { name: /masuk admin/i }).click();
+  140 | }
+  141 | 
+  142 | export async function selectProduct(page: Page, productCode: string) {
+  143 |   const card = page.locator(`[data-product-code="${productCode}"]`).first();
+  144 |   if (await card.count()) {
+  145 |     await card.click();
+  146 |     return;
+  147 |   }
+  148 | 
+  149 |   await page.getByPlaceholder(/cari layanan, operator, atau nama game/i).fill(productCode);
+  150 |   const productText = productCode.toLowerCase().includes('gopay') ? /gopay/i : /telkomsel/i;
+  151 |   await page.getByText(productText).first().click();
+  152 | }
+  153 | 
 ```

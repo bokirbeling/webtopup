@@ -1,0 +1,5 @@
+wave=reseller timestamp=2026-05-17T01:40:41.150Z
+registered_email reseller+20260517014037@example.test
+dashboard_url https://adnanpay.com/dashboard/
+dashboard_has_transaksi true
+dashboard_has_komisi false

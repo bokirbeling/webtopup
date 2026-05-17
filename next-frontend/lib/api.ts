@@ -1,6 +1,7 @@
 const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+const defaultApiBaseUrl = '/ppob-api';
 
-export const apiBaseUrl = configuredApiBaseUrl && configuredApiBaseUrl.length > 0 ? configuredApiBaseUrl.replace(/\/$/, '') : 'http://localhost:3001';
+export const apiBaseUrl = configuredApiBaseUrl && configuredApiBaseUrl.length > 0 ? configuredApiBaseUrl.replace(/\/$/, '') : defaultApiBaseUrl;
 
 export function buildApiUrl(path: string) {
   return `${apiBaseUrl}${path}`;

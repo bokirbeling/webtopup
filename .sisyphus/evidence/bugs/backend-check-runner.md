@@ -1,5 +1,10 @@
 # Backend check runner failed
 
-Error: createTestOrder failed: 400 {"error":{"code":"VALIDATION_ERROR","message":"Invalid order payload.","details":[{"field":"amount_minor","message":"amount_minor is required and must be a positive integer."}]}}
-    at createTestOrder (D:\coding\1.PPOB PAYMENT\backend\playwright-tests\helpers\api.ts:94:11)
+Error: expect(received).toBeDefined()
+
+Received: undefined
+    at captureRawStack (D:\coding\1.PPOB PAYMENT\backend\node_modules\playwright-core\lib\coreBundle.js:3130:17)
+    at callMatcherAsStep (D:\coding\1.PPOB PAYMENT\backend\node_modules\playwright\lib\matchers\expect.js:12873:57)
+    at Object.toBeDefined (D:\coding\1.PPOB PAYMENT\backend\node_modules\playwright\lib\matchers\expect.js:12863:23)
+    at createTestOrder (D:\coding\1.PPOB PAYMENT\backend\playwright-tests\helpers\api.ts:91:26)
     at async main (D:\coding\1.PPOB PAYMENT\backend\playwright-tests\run-backend-checks.ts:14:19)

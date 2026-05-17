@@ -16,6 +16,28 @@ export interface CatalogRepository {
   findProductById(productId: string): Promise<ProductRecord | null>;
   createProduct(input: CreateProductInput): Promise<ProductRecord>;
   updateProduct(productId: string, input: UpdateProductInput): Promise<ProductRecord>;
+  deleteProduct(productId: string): Promise<void>;
+  bulkUpsertProductsAtomically(operations: ReadonlyArray<{
+    action: "create" | "update";
+    skuDigiflazz: string;
+    name: string;
+    category: string;
+    provider: string;
+    basePriceMinor: number;
+    isActive: boolean;
+    metadata: Record<string, unknown>;
+  }>): Promise<Array<{
+    id: string;
+    sku_digiflazz: string;
+    name: string;
+    category: string;
+    provider: string;
+    base_price_minor: number;
+    is_active: boolean;
+    metadata: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+  }>>;
   listPricingRules(): Promise<PricingRuleRecord[]>;
   createPricingRule(input: CreatePricingRuleInput): Promise<PricingRuleRecord>;
   updatePricingRule(ruleId: string, input: UpdatePricingRuleInput): Promise<PricingRuleRecord>;
@@ -274,6 +296,67 @@ export class SupabaseCatalogRepository implements CatalogRepository {
     return parseProductRow(payload[0]);
   }
 
+  async deleteProduct(productId: string): Promise<void> {
+    const response = await this.request("/rest/v1/" + this.tableName("products") + "?id=eq." + encodeURIComponent(productId), {
+      method: "DELETE"
+    });
+    const payload = await readJson(response);
+    if (!response.ok) throw new Error(extractErrorMessage(payload));
+  }
+
+  async bulkUpsertProductsAtomically(operations: ReadonlyArray<{
+    action: "create" | "update";
+    skuDigiflazz: string;
+    name: string;
+    category: string;
+    provider: string;
+    basePriceMinor: number;
+    isActive: boolean;
+    metadata: Record<string, unknown>;
+  }>): Promise<Array<{
+    id: string;
+    sku_digiflazz: string;
+    name: string;
+    category: string;
+    provider: string;
+    base_price_minor: number;
+    is_active: boolean;
+    metadata: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+  }>> {
+    const response = await this.request("/rest/v1/rpc/admin_bulk_upsert_products", {
+      method: "POST",
+      body: JSON.stringify({
+        p_operations: operations.map((operation) => ({
+          action: operation.action,
+          sku_digiflazz: operation.skuDigiflazz,
+          name: operation.name,
+          category: operation.category,
+          provider: operation.provider,
+          base_price_minor: operation.basePriceMinor,
+          is_active: operation.isActive,
+          metadata: operation.metadata
+        }))
+      })
+    });
+    const payload = await readJson(response);
+    if (!response.ok) throw new Error(extractErrorMessage(payload));
+    if (!Array.isArray(payload)) throw new Error("Bulk upload RPC returned malformed data.");
+    return payload as Array<{
+      id: string;
+      sku_digiflazz: string;
+      name: string;
+      category: string;
+      provider: string;
+      base_price_minor: number;
+      is_active: boolean;
+      metadata: Record<string, unknown>;
+      created_at: string;
+      updated_at: string;
+    }>;
+  }
+
   async listPricingRules(): Promise<PricingRuleRecord[]> {
     const response = await this.request(
       "/rest/v1/" + this.tableName("pricing_rules") + "?select=" + this.pricingRuleSelect() + "&order=priority.desc,id.asc"
@@ -357,6 +440,87 @@ export class InMemoryCatalogRepository implements CatalogRepository {
     };
     this.productsById.set(productId, updated);
     return updated;
+  }
+
+  async deleteProduct(productId: string): Promise<void> {
+    this.productsById.delete(productId);
+  }
+
+  async bulkUpsertProductsAtomically(operations: ReadonlyArray<{
+    action: "create" | "update";
+    skuDigiflazz: string;
+    name: string;
+    category: string;
+    provider: string;
+    basePriceMinor: number;
+    isActive: boolean;
+    metadata: Record<string, unknown>;
+  }>): Promise<Array<{
+    id: string;
+    sku_digiflazz: string;
+    name: string;
+    category: string;
+    provider: string;
+    base_price_minor: number;
+    is_active: boolean;
+    metadata: Record<string, unknown>;
+    created_at: string;
+    updated_at: string;
+  }>> {
+    const snapshot = new Map(this.productsById);
+    const now = new Date();
+
+    try {
+      for (const operation of operations) {
+        const existing = Array.from(this.productsById.values()).find(
+          (product) => product.skuDigiflazz.toLowerCase() === operation.skuDigiflazz.toLowerCase()
+        );
+
+        if (existing) {
+          this.productsById.set(existing.id, {
+            ...existing,
+            skuDigiflazz: operation.skuDigiflazz,
+            name: operation.name,
+            category: operation.category,
+            provider: operation.provider,
+            basePriceMinor: operation.basePriceMinor,
+            isActive: operation.isActive,
+            metadata: operation.metadata,
+            updatedAt: now
+          });
+        } else {
+          this.productsById.set(randomUUID(), {
+            id: randomUUID(),
+            skuDigiflazz: operation.skuDigiflazz,
+            name: operation.name,
+            category: operation.category,
+            provider: operation.provider,
+            basePriceMinor: operation.basePriceMinor,
+            isActive: operation.isActive,
+            metadata: operation.metadata,
+            createdAt: now,
+            updatedAt: now
+          });
+        }
+      }
+    } catch (error) {
+      this.productsById.clear();
+      for (const [key, value] of snapshot.entries()) this.productsById.set(key, value);
+      throw error;
+    }
+
+    return Array.from(this.productsById.values()).map((product) => ({
+      id: product.id,
+      sku_digiflazz: product.skuDigiflazz,
+      name: product.name,
+      category: product.category,
+      provider: product.provider,
+      base_price_minor: product.basePriceMinor,
+      is_active: product.isActive,
+      metadata: product.metadata,
+      created_at: product.createdAt.toISOString(),
+      updated_at: product.updatedAt.toISOString()
+    }));
   }
 
   async listPricingRules(): Promise<PricingRuleRecord[]> {

@@ -8,6 +8,7 @@ import { createAccountRouter } from "./modules/account/account.router";
 import { createAccountService, type AccountService } from "./modules/account/account.service";
 import { createAdminRouter } from "./modules/admin/admin.router";
 import { createAdminService, type AdminService } from "./modules/admin/admin.service";
+import { createProductUploadService } from "./modules/admin/product-upload.service";
 import { createAdminMonitoringRouter, createMemberTransactionsRouter } from "./modules/dashboard/dashboard.router";
 import { createDashboardService, type DashboardService } from "./modules/dashboard/dashboard.service";
 import { createAdminDigiflazzOperationsRouter } from "./modules/dashboard/digiflazz-operations.router";
@@ -152,6 +153,7 @@ export function createApp(dependencies: AppDependencies) {
         })
       : new InMemoryCatalogRepository()
   );
+  const productUploadService = createProductUploadService(catalogRepository);
 
   const priceListSyncService = createDigiflazzPriceListSyncService({
     repository: catalogRepository,
@@ -280,7 +282,7 @@ export function createApp(dependencies: AppDependencies) {
     app.use(fullPath("/api/account/audit"), authenticationMiddleware, createProviderAuditRouter({ repository: providerAuditRepository }));
     app.use(fullPath("/api/account/commission"), authenticationMiddleware, createCommissionRouter({ commissionService, repository: commissionRepository }));
     
-    app.use(fullPath("/api/admin"), authenticationMiddleware, adminOnlyMiddleware, createAdminRouter({ adminService }));
+    app.use(fullPath("/api/admin"), authenticationMiddleware, adminOnlyMiddleware, createAdminRouter({ adminService, productUploadService }));
     app.use(fullPath("/api/admin/monitoring"), authenticationMiddleware, adminOnlyMiddleware, createAdminMonitoringRouter({ dashboardService }));
     app.use(fullPath("/api/admin/catalog"), authenticationMiddleware, adminOnlyMiddleware, createCatalogAdminRouter({ catalogService }));
     app.use(fullPath("/api/admin/audit"), authenticationMiddleware, adminOnlyMiddleware, createAdminAuditRouter({ repository: providerAuditRepository }));

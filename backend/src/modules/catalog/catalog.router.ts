@@ -464,6 +464,15 @@ export function createCatalogAdminRouter(dependencies: CatalogAdminRouterDepende
     }
   });
 
+  adminRouter.delete("/products/:productId", async (request, response, next) => {
+    try {
+      await dependencies.catalogService.deleteProduct(request.params.productId);
+      response.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
+
   adminRouter.get("/pricing-rules", async (_request, response) => {
     const pricingRules = await dependencies.catalogService.listPricingRules();
     response.status(200).json({ pricing_rules: pricingRules.map(pricingRuleResponse) });

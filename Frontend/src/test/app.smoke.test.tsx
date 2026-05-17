@@ -276,9 +276,9 @@ describe('App smoke test', () => {
     expect(screen.getByTestId('order-id')).toHaveTextContent('order-1001');
     expect(screen.getByTestId('payment-status')).toHaveTextContent('pending_payment / pending');
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://localhost:3001/api/catalog/products');
-    expect(fetchMock.mock.calls[1]?.[0]).toBe('http://localhost:3001/api/orders');
-    expect(fetchMock.mock.calls[2]?.[0]).toBe('http://localhost:3001/api/payments/midtrans/initialize');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/ppob-api/api/catalog/products');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/ppob-api/api/orders');
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/ppob-api/api/payments/midtrans/initialize');
   });
 
   it('shows checkout error and retry when order creation fails', async () => {
@@ -345,7 +345,7 @@ describe('App smoke test', () => {
     render(<App />);
 
     await waitFor(() => expect(screen.getByTestId('status-badge')).toHaveTextContent('Menunggu Pembayaran'));
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://localhost:3001/api/invoices/INV-TEST-0001/status');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/ppob-api/api/invoices/INV-TEST-0001/status');
 
     await new Promise((resolve) => setTimeout(resolve, 2100));
     await waitFor(() => expect(screen.getByTestId('status-badge')).toHaveTextContent('Dibayar'));
@@ -410,7 +410,7 @@ describe('App smoke test', () => {
 
     await waitFor(() => expect(screen.getByTestId('status-badge')).toHaveTextContent('Sukses'));
     expect(screen.getByTestId('timeline-item-success')).toHaveTextContent('success');
-    expect(invoiceFetchMock.mock.calls[0]?.[0]).toBe('http://localhost:3001/api/invoices/INV-TEST-0001/status');
+    expect(invoiceFetchMock.mock.calls[0]?.[0]).toBe('/ppob-api/api/invoices/INV-TEST-0001/status');
   });
 
   it('keeps the invoice shell interactive when invoice lookup fails', async () => {
@@ -501,11 +501,11 @@ describe('App smoke test', () => {
     expect(screen.getByTestId('transaction-order-history-1')).toHaveTextContent('mobile-legends-86-diamond');
     expect(screen.getByTestId('transaction-order-history-1')).toHaveTextContent('Payment: paid');
     expect(window.localStorage.getItem('bayarku.auth.session')).toContain('member-token');
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://localhost:3001/api/auth/login');
-    expect(fetchMock.mock.calls[1]?.[0]).toBe('http://localhost:3001/api/auth/me');
-    expect(fetchMock.mock.calls[2]?.[0]).toBe('http://localhost:3001/api/account/status');
-    expect(fetchMock.mock.calls[3]?.[0]).toBe('http://localhost:3001/api/catalog/products');
-    expect(fetchMock.mock.calls[4]?.[0]).toBe('http://localhost:3001/api/account/transactions');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/ppob-api/api/auth/login');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/ppob-api/api/auth/me');
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/ppob-api/api/account/status');
+    expect(fetchMock.mock.calls[3]?.[0]).toBe('/ppob-api/api/catalog/products');
+    expect(fetchMock.mock.calls[4]?.[0]).toBe('/ppob-api/api/account/transactions');
 
     const catalogInit = fetchMock.mock.calls[3]?.[1] as RequestInit | undefined;
     const transactionsInit = fetchMock.mock.calls[4]?.[1] as RequestInit | undefined;
@@ -566,7 +566,7 @@ describe('App smoke test', () => {
 
     await waitFor(() => expect(screen.getByTestId('reseller-status')).toHaveTextContent('Menunggu review admin'));
     expect(screen.getByTestId('reseller-message')).toHaveTextContent('Permintaan reseller tersimpan');
-    expect(fetchMock.mock.calls[4]?.[0]).toBe('http://localhost:3001/api/account/reseller-request');
+    expect(fetchMock.mock.calls[4]?.[0]).toBe('/ppob-api/api/account/reseller-request');
     const resellerInit = fetchMock.mock.calls[4]?.[1] as RequestInit | undefined;
     expect((resellerInit?.headers as Record<string, string>).Authorization).toBe('Bearer stored-token');
   });
@@ -605,7 +605,7 @@ describe('App smoke test', () => {
     expect(screen.queryByText('Approve')).toBeNull();
     expect(screen.queryByTestId('admin-monitoring')).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://localhost:3001/api/auth/me');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/ppob-api/api/auth/me');
   });
 
   it('renders admin controls and performs product, pricing, and reseller actions', async () => {
@@ -712,7 +712,7 @@ describe('App smoke test', () => {
 
     fireEvent.click(screen.getByTestId('digiflazz-sync-button'));
 
-    await waitFor(() => expect(fetchMock.mock.calls[6]?.[0]).toBe('http://localhost:3001/api/admin/catalog/digiflazz/price-list/sync'));
+    await waitFor(() => expect(fetchMock.mock.calls[6]?.[0]).toBe('/ppob-api/api/admin/catalog/digiflazz/price-list/sync'));
 
     fireEvent.change(screen.getByLabelText('SKU produk'), { target: { value: 'ADM200' } });
     fireEvent.change(screen.getByLabelText('Nama produk'), { target: { value: 'Created Admin Product' } });
@@ -731,23 +731,23 @@ describe('App smoke test', () => {
 
     await waitFor(() => expect(screen.getByTestId('admin-user-user-2002')).toHaveTextContent('Disetujui'));
 
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://localhost:3001/api/auth/me');
-    expect(fetchMock.mock.calls[1]?.[0]).toBe('http://localhost:3001/api/admin/catalog/products');
-    expect(fetchMock.mock.calls[2]?.[0]).toBe('http://localhost:3001/api/admin/catalog/pricing-rules');
-    expect(fetchMock.mock.calls[3]?.[0]).toBe('http://localhost:3001/api/admin/users');
-    expect(fetchMock.mock.calls[4]?.[0]).toBe('http://localhost:3001/api/admin/monitoring');
-    expect(fetchMock.mock.calls[5]?.[0]).toBe('http://localhost:3001/api/admin/digiflazz/operations');
-    expect(fetchMock.mock.calls[6]?.[0]).toBe('http://localhost:3001/api/admin/catalog/digiflazz/price-list/sync');
-    expect(fetchMock.mock.calls[7]?.[0]).toBe('http://localhost:3001/api/admin/digiflazz/operations');
-    expect(fetchMock.mock.calls[8]?.[0]).toBe('http://localhost:3001/api/auth/me');
-    expect(fetchMock.mock.calls[9]?.[0]).toBe('http://localhost:3001/api/admin/catalog/products');
-    expect(fetchMock.mock.calls[10]?.[0]).toBe('http://localhost:3001/api/admin/catalog/pricing-rules');
-    expect(fetchMock.mock.calls[11]?.[0]).toBe('http://localhost:3001/api/admin/users');
-    expect(fetchMock.mock.calls[12]?.[0]).toBe('http://localhost:3001/api/admin/monitoring');
-    expect(fetchMock.mock.calls[13]?.[0]).toBe('http://localhost:3001/api/admin/digiflazz/operations');
-    expect(fetchMock.mock.calls[14]?.[0]).toBe('http://localhost:3001/api/admin/catalog/products');
-    expect(fetchMock.mock.calls[15]?.[0]).toBe('http://localhost:3001/api/admin/catalog/pricing-rules/pricing-rule-1');
-    expect(fetchMock.mock.calls[16]?.[0]).toBe('http://localhost:3001/api/admin/users/user-2002/reseller/approve');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/ppob-api/api/auth/me');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/ppob-api/api/admin/catalog/products');
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/ppob-api/api/admin/catalog/pricing-rules');
+    expect(fetchMock.mock.calls[3]?.[0]).toBe('/ppob-api/api/admin/users');
+    expect(fetchMock.mock.calls[4]?.[0]).toBe('/ppob-api/api/admin/monitoring');
+    expect(fetchMock.mock.calls[5]?.[0]).toBe('/ppob-api/api/admin/digiflazz/operations');
+    expect(fetchMock.mock.calls[6]?.[0]).toBe('/ppob-api/api/admin/catalog/digiflazz/price-list/sync');
+    expect(fetchMock.mock.calls[7]?.[0]).toBe('/ppob-api/api/admin/digiflazz/operations');
+    expect(fetchMock.mock.calls[8]?.[0]).toBe('/ppob-api/api/auth/me');
+    expect(fetchMock.mock.calls[9]?.[0]).toBe('/ppob-api/api/admin/catalog/products');
+    expect(fetchMock.mock.calls[10]?.[0]).toBe('/ppob-api/api/admin/catalog/pricing-rules');
+    expect(fetchMock.mock.calls[11]?.[0]).toBe('/ppob-api/api/admin/users');
+    expect(fetchMock.mock.calls[12]?.[0]).toBe('/ppob-api/api/admin/monitoring');
+    expect(fetchMock.mock.calls[13]?.[0]).toBe('/ppob-api/api/admin/digiflazz/operations');
+    expect(fetchMock.mock.calls[14]?.[0]).toBe('/ppob-api/api/admin/catalog/products');
+    expect(fetchMock.mock.calls[15]?.[0]).toBe('/ppob-api/api/admin/catalog/pricing-rules/pricing-rule-1');
+    expect(fetchMock.mock.calls[16]?.[0]).toBe('/ppob-api/api/admin/users/user-2002/reseller/approve');
     const syncInit = fetchMock.mock.calls[6]?.[1] as RequestInit | undefined;
     const pricingInit = fetchMock.mock.calls[15]?.[1] as RequestInit | undefined;
     expect((syncInit?.headers as Record<string, string>).Authorization).toBe('Bearer admin-token');

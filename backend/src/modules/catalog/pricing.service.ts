@@ -17,6 +17,7 @@ export type CatalogService = Readonly<{
   listAdminProducts(): Promise<ProductRecord[]>;
   createProduct(input: CreateProductRequest): Promise<ProductRecord>;
   updateProduct(productId: string, input: UpdateProductRequest): Promise<ProductRecord>;
+  deleteProduct(productId: string): Promise<void>;
   listPricingRules(): Promise<PricingRuleRecord[]>;
   createPricingRule(input: CreatePricingRuleRequest): Promise<PricingRuleRecord>;
   updatePricingRule(ruleId: string, input: UpdatePricingRuleRequest): Promise<PricingRuleRecord>;
@@ -130,6 +131,10 @@ export function createCatalogService(options: CatalogServiceOptions): CatalogSer
         ...input,
         updatedAt: clock()
       });
+    },
+
+    async deleteProduct(productId: string): Promise<void> {
+      await options.repository.deleteProduct(productId);
     },
 
     async listPricingRules(): Promise<PricingRuleRecord[]> {

@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { BarChart3, Boxes, CheckCircle2, Loader2, LockKeyhole, RefreshCcw, ShieldAlert, SlidersHorizontal, ToggleLeft, UserCheck, UsersRound } from 'lucide-react';
+import { BarChart3, Boxes, CheckCircle2, Loader2, LockKeyhole, RefreshCcw, ShieldAlert, SlidersHorizontal, ToggleLeft, Trash2, UserCheck, UsersRound } from 'lucide-react';
 
+import { AdminProductUpload } from './AdminProductUpload';
 import { bearerHeaders, readJsonApi } from '../lib/api';
 
 type AuthUserRole = 'admin' | 'seller' | 'pengguna';
@@ -423,6 +424,26 @@ export default function AdminDashboard() {
     }
   };
 
+  const deleteProduct = async (productId: string) => {
+    if (token === null || !isAdmin) return;
+    setIsMutating(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await readJsonApi(`/api/admin/catalog/products/${productId}`, {
+        method: 'DELETE',
+        headers: bearerHeaders(token),
+      });
+      setProducts((currentProducts) => currentProducts.filter((product) => product.id !== productId));
+      setNotice('Produk berhasil dihapus.');
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Produk gagal dihapus.');
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
   const handleCategoryImageFile = async (file: File | undefined) => {
     if (file === undefined) return;
     const dataUrl = await fileToDataUrl(file);
@@ -663,6 +684,15 @@ export default function AdminDashboard() {
               <input aria-label="URL gambar produk" value={productForm.image_url} onChange={(event) => setProductForm({ ...productForm, image_url: event.target.value })} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100" placeholder="URL/base64 gambar opsional" />
               <button type="submit" disabled={isMutating} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-extrabold text-white transition-all hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300" data-testid="admin-product-create">{isMutating ? <Loader2 size={17} className="animate-spin" /> : <Boxes size={17} />} Buat produk</button>
             </form>
+            <AdminProductUpload
+              token={token}
+              disabled={isMutating || !isAdmin}
+              onUploaded={(nextProducts, summary) => {
+                setProducts(nextProducts);
+                setNotice(summary);
+                setError(null);
+              }}
+            />
             <form onSubmit={uploadCategoryImage} className="mt-5 rounded-3xl border border-amber-100 bg-amber-50/70 p-4" data-testid="admin-category-image-form">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
                 <label className="flex-1 text-sm font-bold text-slate-700">
@@ -682,7 +712,7 @@ export default function AdminDashboard() {
               <p className="mt-2 text-xs text-slate-500">Gambar diterapkan ke semua produk dalam kategori yang dipilih. Di frontend semua gambar dipaksa rasio sama dan object-cover agar rapi di desktop/mobile.</p>
             </form>
             <div className="mt-5 space-y-3">
-              {products.map((product) => <article key={product.id} className="rounded-2xl border border-slate-200 p-4" data-testid={`admin-product-${product.id}`}><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3">{typeof product.metadata.image_url === 'string' && <img src={product.metadata.image_url} alt={product.name} className="h-14 w-14 rounded-2xl object-cover" loading="lazy" />}<div><h3 className="font-extrabold text-slate-900">{product.name}</h3><p className="text-sm text-slate-500">{product.sku_digiflazz} · {product.category} · {formatRupiah(product.base_price_minor)}</p></div></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => void updateProduct(product, { name: product.name + ' Updated' })} disabled={isMutating} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-60" data-testid={`admin-product-update-${product.id}`}>Update</button><button type="button" onClick={() => void updateProduct(product, { is_active: !product.is_active })} disabled={isMutating} className="inline-flex items-center gap-1 rounded-xl bg-amber-400 px-3 py-2 text-xs font-extrabold text-slate-950 transition-all hover:bg-amber-300 disabled:opacity-60" data-testid={`admin-product-toggle-${product.id}`}><ToggleLeft size={14} />{product.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button></div></div></article>)}
+              {products.map((product) => <article key={product.id} className="rounded-2xl border border-slate-200 p-4" data-testid={`admin-product-${product.id}`}><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3">{typeof product.metadata.image_url === 'string' && <img src={product.metadata.image_url} alt={product.name} className="h-14 w-14 rounded-2xl object-cover" loading="lazy" />}<div><h3 className="font-extrabold text-slate-900">{product.name}</h3><p className="text-sm text-slate-500">{product.sku_digiflazz} · {product.category} · {formatRupiah(product.base_price_minor)}</p></div></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => void updateProduct(product, { name: product.name + ' Updated' })} disabled={isMutating} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-slate-50 disabled:opacity-60" data-testid={`admin-product-update-${product.id}`}>Update</button><button type="button" onClick={() => void updateProduct(product, { is_active: !product.is_active })} disabled={isMutating} className="inline-flex items-center gap-1 rounded-xl bg-amber-400 px-3 py-2 text-xs font-extrabold text-slate-950 transition-all hover:bg-amber-300 disabled:opacity-60" data-testid={`admin-product-toggle-${product.id}`}><ToggleLeft size={14} />{product.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button><button type="button" onClick={() => void deleteProduct(product.id)} disabled={isMutating} className="inline-flex items-center gap-1 rounded-xl border border-rose-200 px-3 py-2 text-xs font-extrabold text-rose-600 transition-all hover:bg-rose-50 disabled:opacity-60" data-testid={`admin-product-delete-${product.id}`}><Trash2 size={14} />Hapus</button></div></div></article>)}
             </div>
           </section>
 

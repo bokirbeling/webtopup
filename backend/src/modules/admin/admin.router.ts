@@ -1,10 +1,14 @@
+import { Buffer } from "node:buffer";
+
 import { type Response, Router } from "express";
 
 import { toUserResponse } from "../account/account.router";
 import { AdminEmailUnverifiedError, AdminUserNotFoundError, type AdminService } from "./admin.service";
+import { type ProductUploadService } from "./product-upload.service";
 
 export type AdminRouterDependencies = Readonly<{
   adminService: AdminService;
+  productUploadService?: ProductUploadService;
 }>;
 
 function sendNotFound(response: Response) {
@@ -37,6 +41,43 @@ function handleAdminError(error: unknown, response: Response) {
 
 export function createAdminRouter(dependencies: AdminRouterDependencies) {
   const adminRouter = Router();
+
+  adminRouter.post("/products/upload", async (request, response) => {
+    if (dependencies.productUploadService === undefined) {
+      response.status(503).json({
+        error: {
+          code: "PRODUCT_UPLOAD_UNAVAILABLE",
+          message: "Product upload service is not configured."
+        }
+      });
+      return;
+    }
+
+    const fileBase64 = typeof request.body?.file_base64 === "string" ? request.body.file_base64.trim() : "";
+    if (fileBase64.length === 0) {
+      response.status(400).json({
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "file_base64 is required."
+        }
+      });
+      return;
+    }
+
+    const result = await dependencies.productUploadService.processProductUpload(Buffer.from(fileBase64, "base64"));
+    if (result.errors.length > 0) {
+      response.status(400).json({
+        error: {
+          code: "PRODUCT_UPLOAD_VALIDATION_ERROR",
+          message: "Upload produk gagal divalidasi.",
+          details: result.errors
+        }
+      });
+      return;
+    }
+
+    response.status(200).json(result);
+  });
 
   adminRouter.get("/users", async (_request, response) => {
     const users = await dependencies.adminService.listUsers();

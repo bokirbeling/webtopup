@@ -32,39 +32,20 @@
 - View commission (if approved)
 - Request payout
 
-### Admin Account
-**Status**: Not yet created in demo database
+### Admin Account ✓ CREATED
+**Email**: admin@adnanpay.com  
+**Password**: Admin123!@#  
+**Role**: admin  
+**User ID**: 52e58c78-e97e-4d3f-8087-7283391bcc1c  
+**Login URL**: https://adnanpay.com/demo/admin
 
-**Required for**:
+**Features**:
 - Product management
 - Price markup configuration
 - User management (approve/reject resellers)
 - Transaction monitoring
 - Email management
 - Bulk product upload
-
-**To create admin account**:
-```sql
--- Run in Supabase SQL Editor
-INSERT INTO demo_users (email, password_hash, role, is_reseller_active, reseller_status)
-VALUES (
-  'admin@adnanpay.com',
-  '$2a$10$YourBcryptHashHere', -- Use bcrypt to hash password
-  'admin',
-  false,
-  'none'
-);
-```
-
-**Or via backend API** (if auth endpoint allows):
-```bash
-POST https://adnanpay.com/ppob-api/api/auth/register
-{
-  "email": "admin@adnanpay.com",
-  "password": "YourSecurePassword123",
-  "role": "admin"
-}
-```
 
 ## Development API Limitations
 

@@ -267,6 +267,7 @@ describe("catalog and pricing routes", () => {
         username: "buyer-user",
         apiKey: "buyer-api-key",
         apiBaseUrl: "https://api.example.test",
+        webhookSecret: null,
         nodeEnv: "test"
       }
     });
@@ -336,16 +337,19 @@ describe("catalog and pricing routes", () => {
 
   it("requires admin auth for Digiflazz price-list sync", async () => {
     const authRepository = new InMemoryAuthRepository();
+    const catalogRepository = new InMemoryCatalogRepository();
     const app = createApp({
       authRepository,
-      fetchImpl: createPriceListFetchRecorder().fetchImpl,
+      catalogRepository,
       digiflazzConfig: {
         username: "buyer-user",
         apiKey: "buyer-api-key",
-        apiBaseUrl: "https://api.example.test",
+        apiBaseUrl: "https://api.digiflazz.test",
+        webhookSecret: null,
         nodeEnv: "test"
       }
     });
+
     const pengguna = await registerUser(app, "catalog-sync-user@example.com");
 
     const missingTokenResponse = await request(app).post("/api/admin/catalog/digiflazz/price-list/sync").send({});
@@ -363,11 +367,13 @@ describe("catalog and pricing routes", () => {
     const priceListFetch = createPriceListFetchRecorder();
     const app = createApp({
       authRepository,
+      catalogRepository: new InMemoryCatalogRepository(),
       fetchImpl: priceListFetch.fetchImpl,
       digiflazzConfig: {
         username: "buyer-user",
         apiKey: "buyer-api-key",
         apiBaseUrl: "https://api.example.test",
+        webhookSecret: null,
         nodeEnv: "test"
       }
     });

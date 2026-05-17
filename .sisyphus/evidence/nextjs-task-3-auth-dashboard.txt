@@ -1,0 +1,25 @@
+Task: N3. Port auth, member/reseller dashboard, and session behavior
+Status: implemented by main agent.
+
+Implemented:
+- `next-frontend/components/AuthDashboard.tsx`
+- `next-frontend/app/dashboard/page.tsx`
+- Expanded `next-frontend/lib/api.ts` with bearer headers and JSON API helper.
+
+Behavior:
+- Anonymous `/dashboard` shows login/register form.
+- Login/register call backend `/api/auth/login` and `/api/auth/register`.
+- Session token persists in the existing compatibility key `bayarku.auth.session`.
+- Authenticated dashboard loads `/api/auth/me`, `/api/account/status`, `/api/catalog/products`, and `/api/account/transactions`.
+- Reseller request posts to `/api/account/reseller-request` and updates local session/user state.
+- Custom JWT backend remains the source of truth; Supabase Auth is not used.
+
+Verification:
+- `npm run lint`: passed. Existing non-blocking warning remains in N2 catalog fallback image handling only.
+- `npm run typecheck`: passed.
+- `npm run build`: passed with Next.js 15.5.18.
+- `lsp_diagnostics` on `AuthDashboard.tsx`: 0 diagnostics.
+- Secret/anti-pattern grep on Next TypeScript source: no service-role/JWT/Digiflazz/Midtrans/SMTP/SSH secret matches.
+
+Route result:
+- `/dashboard` now renders the migrated auth/member/reseller dashboard instead of scaffold placeholder.

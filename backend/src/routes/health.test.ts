@@ -5,7 +5,7 @@ import { createApp } from "../app";
 
 describe("GET /health", () => {
   it("returns 200 and status ok", async () => {
-    const app = createApp();
+    const app = createApp({});
 
     const response = await request(app).get("/health");
 

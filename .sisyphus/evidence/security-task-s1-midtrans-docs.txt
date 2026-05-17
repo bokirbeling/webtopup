@@ -1,0 +1,17 @@
+# S1 Midtrans Docs Evidence
+
+Added documentation:
+
+- `docs/payment-integrity/midtrans-response-flow.md`
+
+Documentation covers:
+
+- Midtrans as absolute payment truth source.
+- Required webhook fields.
+- Signature formula without exposing server key.
+- Amount match rule.
+- Status mapping.
+- Conflict rules.
+- Safe transition order.
+- Fraud rejection examples.
+- Fulfillment boundary: Digiflazz only after verified Midtrans paid.

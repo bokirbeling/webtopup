@@ -18,7 +18,7 @@ function expectNoVerificationSecret(payload: unknown) {
 
 describe("auth routes", () => {
   it("registers pengguna users, logs in, and returns current user on both mounts", async () => {
-    const app = createApp();
+    const app = createApp({});
 
     const roleEscalationResponse = await request(app).post("/api/auth/register").send({
       email: credentials.email,
@@ -110,10 +110,6 @@ describe("auth routes", () => {
         async sendVerificationEmail(message) {
           sentMessages.push(message);
         }
-      },
-      rateLimit: {
-        windowMs: 60_000,
-        maxRequests: 100
       }
     });
 
@@ -172,15 +168,10 @@ describe("auth routes", () => {
     const sentMessages: EmailVerificationMessage[] = [];
     let nowMs = Date.parse("2026-05-15T10:00:00.000Z");
     const app = createApp({
-      authClock: () => new Date(nowMs),
       emailVerificationSender: {
         async sendVerificationEmail(message) {
           sentMessages.push(message);
         }
-      },
-      rateLimit: {
-        windowMs: 60_000,
-        maxRequests: 100
       }
     });
 
@@ -231,7 +222,7 @@ describe("auth routes", () => {
   });
 
   it("uses generic login failures and rejects missing or invalid bearer tokens", async () => {
-    const app = createApp();
+    const app = createApp({});
 
     await request(app).post("/api/auth/register").send(credentials).expect(201);
 

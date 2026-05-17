@@ -258,6 +258,37 @@ export default function GameTopUp() {
   const [customerId, setCustomerId] = useState('');
   const [zoneId, setZoneId] = useState('');
   const [email, setEmail] = useState('');
+
+  // Get customer ID label based on product category
+  const getCustomerIdLabel = (category: string): string => {
+    const lowerCategory = category.toLowerCase();
+    if (lowerCategory.includes('pln') || lowerCategory.includes('listrik')) {
+      return 'Nomor Pelanggan PLN';
+    }
+    if (lowerCategory.includes('pulsa') || lowerCategory.includes('paket') || lowerCategory.includes('data')) {
+      return 'Nomor HP';
+    }
+    if (lowerCategory.includes('mobile legends') || lowerCategory.includes('mlbb')) {
+      return 'User ID';
+    }
+    if (lowerCategory.includes('game') || lowerCategory.includes('free fire') || lowerCategory.includes('genshin')) {
+      return 'User ID / Game ID';
+    }
+    if (lowerCategory.includes('voucher') || lowerCategory.includes('google play')) {
+      return 'Email / User ID';
+    }
+    if (lowerCategory.includes('gopay') || lowerCategory.includes('ovo') || lowerCategory.includes('dana') || lowerCategory.includes('wallet')) {
+      return 'Nomor HP / Email';
+    }
+    return 'ID Pelanggan / Nomor Tujuan';
+  };
+
+  // Check if Zone ID is needed (Mobile Legends only)
+  const needsZoneId = (category: string): boolean => {
+    const lowerCategory = category.toLowerCase();
+    return lowerCategory.includes('mobile legends') || lowerCategory.includes('mlbb');
+  };
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [orderResult, setOrderResult] = useState<OrderResponse | null>(null);
@@ -319,6 +350,9 @@ export default function GameTopUp() {
   }, [products, searchTerm, selectedCategory]);
 
   const selectedProduct = products.find((product) => product.key === selectedProductKey) ?? filteredProducts[0] ?? products[0];
+  const selectedProductCategory = selectedProduct?.category || '';
+  const customerIdLabel = getCustomerIdLabel(selectedProductCategory);
+  const showZoneId = needsZoneId(selectedProductCategory);
   const paymentStatus = paymentResult === null ? orderResult?.status : `${orderResult?.status} / ${paymentResult.status}`;
 
   const submitCheckout = async () => {
@@ -511,37 +545,38 @@ export default function GameTopUp() {
 
             <div className="space-y-3">
               <label className="block">
-                <span className="text-sm font-semibold text-slate-700">Customer ID</span>
+                <span className="text-sm font-semibold text-slate-700">{customerIdLabel}</span>
                 <input
                   name="customer_id"
                   value={customerId}
                   onChange={(event) => setCustomerId(event.target.value)}
                   required
-                  placeholder="12345678"
+                  placeholder={showZoneId ? "12345678" : "Masukkan nomor/ID"}
                   className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
               </label>
 
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700">Zone ID</span>
-                <input
-                  name="zone_id"
-                  value={zoneId}
-                  onChange={(event) => setZoneId(event.target.value)}
-                  required
-                  placeholder="1234"
-                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-                />
-              </label>
+              {showZoneId && (
+                <label className="block">
+                  <span className="text-sm font-semibold text-slate-700">Zone ID</span>
+                  <input
+                    name="zone_id"
+                    value={zoneId}
+                    onChange={(event) => setZoneId(event.target.value)}
+                    required
+                    placeholder="1234"
+                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  />
+                </label>
+              )}
 
               <label className="block">
-                <span className="text-sm font-semibold text-slate-700">Email</span>
+                <span className="text-sm font-semibold text-slate-700">Email (opsional)</span>
                 <input
                   name="email"
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  required
                   placeholder="nama@email.com"
                   className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />

@@ -5,8 +5,12 @@ import {
   parseDigiflazzBuyerResponse,
   requireDigiflazzBuyerCredentials
 } from "../digiflazz/buyer-client";
-import { OrderTransitionError, type OrderService } from "../order/order.service";
+import { type OrderService } from "../order/order.service";
+import { OrderTransitionError } from "../order/order.transition.service";
+import { type OrderRepository } from "../order/order.repository";
+import { type CommissionService } from "../commission/commission.service";
 import { type FulfillmentRepository } from "./fulfillment.repository";
+import { type ProviderAuditRepository } from "../audit/provider-audit.types";
 import {
   type DigiflazzCallbackPayload,
   type FulfillmentOrderLookup,
@@ -33,7 +37,9 @@ type DigiflazzConfig = Readonly<{
 type FulfillmentServiceOptions = Readonly<{
   fulfillmentRepository: FulfillmentRepository;
   orderService: OrderService;
+  commissionService?: CommissionService;
   digiflazzConfig: DigiflazzConfig;
+  providerAuditRepository?: ProviderAuditRepository;
   fetchImpl?: typeof fetch;
   clock?: () => Date;
 }>;
@@ -290,6 +296,12 @@ export function createFulfillmentService(options: FulfillmentServiceOptions): Fu
           metadata: { provider, fulfillmentId: fulfillment.id, providerReference, providerMode: "mock" },
           createdBy: "fulfillment_service"
         });
+
+        // S5: Mark commission payable if order is success
+        if (options.commissionService) {
+          await options.commissionService.markCommissionPayable(order.id);
+        }
+
         return { fulfillmentId: fulfillment.id, orderId: order.id, status: fulfillment.status, providerReference, providerMode: "mock" };
       }
 
@@ -308,6 +320,30 @@ export function createFulfillmentService(options: FulfillmentServiceOptions): Fu
         createdAt: now,
         updatedAt: now
       });
+
+      if (options.providerAuditRepository) {
+        await options.providerAuditRepository.recordProviderEvent({
+          orderId: order.id,
+          paymentId: null,
+          fulfillmentId: fulfillment.id,
+          provider: "digiflazz",
+          eventType: "api_response_topup",
+          providerReference: fulfillment.providerFulfillmentId ?? providerReference,
+          providerStatus: topup.status,
+          providerCode: requireString(topup.responseData.rc),
+          providerMessage: requireString(topup.responseData.message),
+          amountMinor: order.amountMinor,
+          skuDigiflazz: order.productCode,
+          customerNoMasked: order.customerRef,
+          serialNumber: fulfillment.serialNumber,
+          signatureVerified: true,
+          amountMatched: true,
+          idempotencyKey: providerReference,
+          rawPayload: toRecord(topup.responsePayload),
+          safeSummary: `Digiflazz topup response: ${topup.status}. RC: ${topup.responseData.rc}`
+        });
+      }
+
       return { fulfillmentId: fulfillment.id, orderId: order.id, status: fulfillment.status, providerReference, providerMode: "live" };
     },
 
@@ -345,13 +381,18 @@ export function createFulfillmentService(options: FulfillmentServiceOptions): Fu
         updatedAt: now
       });
 
-      await transitionTerminalOrderStatus(
+      const transitioned = await transitionTerminalOrderStatus(
         updated,
         topup.status,
         { provider, fulfillmentId: updated.id, providerReference: existing.providerReference, transactionId: updated.providerFulfillmentId, recheck: true },
         "digiflazz_recheck_" + topup.status,
         "fulfillment_recheck"
       );
+
+      // S5: Mark commission payable if order is success
+      if (status === "success" && options.commissionService) {
+        await options.commissionService.markCommissionPayable(updated.orderId);
+      }
 
       return { fulfillmentId: updated.id, orderId: updated.orderId, status: updated.status, providerReference: existing.providerReference, providerMode };
     },
@@ -382,6 +423,8 @@ export function createFulfillmentService(options: FulfillmentServiceOptions): Fu
         throw new FulfillmentValidationError("Fulfillment for ref_id " + refId + " was not found.");
       }
 
+      const order = await options.orderService.findOrderById(fulfillment.orderId);
+
       const status = mapDigiflazzStatus(requireString(data.status));
       const updated = await options.fulfillmentRepository.updateFulfillmentStatus({
         fulfillmentId: fulfillment.id,
@@ -393,6 +436,29 @@ export function createFulfillmentService(options: FulfillmentServiceOptions): Fu
         updatedAt: now
       });
 
+      if (options.providerAuditRepository) {
+        await options.providerAuditRepository.recordProviderEvent({
+          orderId: order?.id ?? null,
+          paymentId: null,
+          fulfillmentId: updated.id,
+          provider: "digiflazz",
+          eventType: "callback",
+          providerReference: updated.providerFulfillmentId ?? refId,
+          providerStatus: status,
+          providerCode: requireString(data.rc),
+          providerMessage: requireString(data.message),
+          amountMinor: order?.amountMinor ?? null,
+          skuDigiflazz: order?.productCode ?? null,
+          customerNoMasked: order?.customerRef ?? null,
+          serialNumber: updated.serialNumber,
+          signatureVerified: true,
+          amountMatched: true,
+          idempotencyKey: eventKey,
+          rawPayload: toRecord(payload),
+          safeSummary: `Digiflazz callback: ${status}. RC: ${data.rc}`
+        });
+      }
+
       const transitioned = await transitionTerminalOrderStatus(
         updated,
         status,
@@ -400,6 +466,12 @@ export function createFulfillmentService(options: FulfillmentServiceOptions): Fu
         "digiflazz_callback_" + status,
         "digiflazz_callback"
       );
+
+      // S5: Mark commission payable if order is success
+      if (status === "success" && options.commissionService) {
+        await options.commissionService.markCommissionPayable(updated.orderId);
+      }
+
       if (!transitioned) {
         await options.fulfillmentRepository.updateWebhookEventState({ eventId: registration.event.id, processingState: "ignored", processedAt: now, errorMessage: "Order transition was rejected by monotonic transition guard." });
         return { code: "IGNORED" as const, message: "Callback did not mutate order due to monotonic transition guard." };

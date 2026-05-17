@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { InMemoryOrderRepository } from "../order/order.repository";
+import { type OrderRepository } from "../order/order.repository";
 import {
   type FulfillmentOrderLookup,
   type FulfillmentRecord,
@@ -361,7 +362,7 @@ export class InMemoryFulfillmentRepository implements FulfillmentRepository {
   private readonly fulfillmentKeyByProviderReference = new Map<string, string>();
   private readonly webhookEventByProviderKey = new Map<string, FulfillmentWebhookEventRecord>();
 
-  constructor(private readonly orderRepository: InMemoryOrderRepository) {}
+  constructor(private readonly orderRepository: OrderRepository) {}
 
   async findOrderById(orderId: string): Promise<FulfillmentOrderLookup | null> {
     const order = await this.orderRepository.findOrderById(orderId);

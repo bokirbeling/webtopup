@@ -44,8 +44,8 @@ function bootstrap() {
   const env = readEnv();
   const app = createApp({
     supabaseConfig: {
-      supabaseUrl: env.supabaseUrl,
-      supabaseServiceRoleKey: env.supabaseServiceRoleKey,
+      url: env.supabaseUrl,
+      serviceRoleKey: env.supabaseServiceRoleKey,
       tablePrefix: env.supabaseTablePrefix === "" ? undefined : env.supabaseTablePrefix
     },
     authConfig: {
@@ -55,6 +55,8 @@ function bootstrap() {
     },
     emailVerificationSender: createEmailVerificationSender(env),
     midtransConfig: {
+      clientKey: "", // Not needed for backend
+      merchantId: "", // Not needed for backend
       serverKey: env.midtransServerKey,
       apiBaseUrl: env.midtransApiBaseUrl
     },

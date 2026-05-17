@@ -301,7 +301,7 @@ describe("POST /api/orders", () => {
   });
 
   it("returns stable validation error for invalid payload", async () => {
-    const app = createApp();
+    const app = createApp({});
 
     const response = await request(app).post("/api/orders").send({
       amount_minor: 0,

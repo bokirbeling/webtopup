@@ -41,9 +41,9 @@ function createDashboardFixture() {
       username: "buyer-user",
       apiKey: "buyer-api-key",
       apiBaseUrl: "https://api.digiflazz.test",
+      webhookSecret: null,
       nodeEnv: "test"
-    },
-    rateLimit: { windowMs: 60_000, maxRequests: 100 }
+    }
   });
 
   return { app, authRepository, catalogRepository, orderRepository, paymentRepository, fulfillmentRepository, fetchImpl };
@@ -61,6 +61,9 @@ async function seedMemberTransaction(fixture: ReturnType<typeof createDashboardF
     amountMinor: 20_000,
     currency: "IDR",
     status: "success",
+    referralCode: null,
+    discountCode: null,
+    discountAmountMinor: null,
     metadata: { source: "dashboard_history_test" },
     basePriceSnapshot: 19_000,
     markupSnapshot: 1_000,

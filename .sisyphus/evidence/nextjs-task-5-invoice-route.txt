@@ -1,0 +1,25 @@
+Task: N5. Port invoice/public tracking routes
+Status: implemented by main agent.
+
+Implemented:
+- `next-frontend/components/InvoiceStatus.tsx`
+- `next-frontend/app/invoice/[code]/page.tsx`
+- `next-frontend/app/lacak/page.tsx`
+
+Behavior:
+- Direct `/invoice/[code]` route renders public invoice tracker.
+- Polls backend `/api/invoices/:code/status` through `NEXT_PUBLIC_API_BASE_URL` helper.
+- Shows order/product/amount, payment status, fulfillment status, serial number, timeline, error state, and manual refresh.
+- `/lacak?invoice=...` provides public tracking entry and links to `/invoice/[code]`.
+- No login required and no admin/user secrets displayed.
+
+Verification:
+- `npm run lint`: passed. Existing non-blocking N2 image fallback warning remains only in catalog.
+- `npm run typecheck`: passed.
+- `npm run build`: passed with Next.js 15.5.18.
+- `lsp_diagnostics` on `InvoiceStatus.tsx`: 0 diagnostics.
+- Secret/anti-pattern grep on Next TypeScript source: no service-role/JWT/Digiflazz/Midtrans/SMTP/SSH secret matches.
+
+Route result:
+- `/invoice/[code]` is dynamic and server-refresh safe.
+- `/lacak` is dynamic because it reads search params and links to invoice route.

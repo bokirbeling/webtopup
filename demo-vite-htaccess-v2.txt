@@ -1,0 +1,5 @@
+RewriteEngine On
+RewriteBase /demo/
+
+# Proxy /ppob-api to backend
+RewriteRule ^ppob-api/(.*)$ http://localhost:3001/ [P,L]

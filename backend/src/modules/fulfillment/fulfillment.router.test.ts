@@ -326,8 +326,7 @@ describe("digiflazz fulfillment routes", () => {
     const auditLogger = new InMemoryAuditLogger();
     const app = createApp({
       orderService: services.orderService,
-      fulfillmentService: services.fulfillmentService,
-      auditLogger
+      fulfillmentService: services.fulfillmentService
     });
     const order = await createPaidDigiflazzOrder(services);
 
@@ -352,5 +351,123 @@ describe("digiflazz fulfillment routes", () => {
         reason: "Digiflazz credentials are required in production. Missing: DIGIFLAZZ_USERNAME, DIGIFLAZZ_API_KEY."
       })
     ]);
+  });
+
+  it("rejects fulfillment trigger for unpaid order", async () => {
+    const services = createTestServices();
+    const app = createFulfillmentApp(services);
+
+    const order = await services.orderRepository.createOrder({
+      id: "ord-unpaid-1",
+      orderNumber: "INV-UNPAID-1",
+      customerRef: "123",
+      userId: null,
+      productCode: "X100",
+      provider: "digiflazz",
+      amountMinor: 10000,
+      currency: "IDR",
+      status: "created",
+      referralCode: null,
+      discountCode: null,
+      discountAmountMinor: null,
+      metadata: {},
+      rolePriceSnapshot: 10000,
+      basePriceSnapshot: 9000,
+      markupSnapshot: 1000,
+      pricingRuleIdSnapshot: "rule-1",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    await services.orderService.transitionOrderStatus({
+      orderId: order.id,
+      toStatus: "pending_payment",
+      createdBy: "test"
+    });
+
+    const response = await request(app)
+      .post("/api/fulfillments/digiflazz/trigger")
+      .send({ order_id: order.id });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("FULFILLMENT_VALIDATION_ERROR");
+    expect(response.body.error.message).toContain("requires paid status");
+
+    const finalOrder = await services.orderRepository.findOrderById(order.id);
+    expect(finalOrder?.status).toBe("pending_payment");
+  });
+
+  it("ignores success callback for unpaid order via monotonic guard", async () => {
+    const services = createTestServices();
+    const app = createFulfillmentApp(services);
+
+    const order = await services.orderRepository.createOrder({
+      id: "ord-unpaid-2",
+      orderNumber: "INV-UNPAID-2",
+      customerRef: "456",
+      userId: null,
+      productCode: "X100",
+      provider: "digiflazz",
+      amountMinor: 10000,
+      currency: "IDR",
+      status: "created",
+      referralCode: null,
+      discountCode: null,
+      discountAmountMinor: null,
+      metadata: {},
+      rolePriceSnapshot: 10000,
+      basePriceSnapshot: 9000,
+      markupSnapshot: 1000,
+      pricingRuleIdSnapshot: "rule-1",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    await services.orderService.transitionOrderStatus({
+      orderId: order.id,
+      toStatus: "pending_payment",
+      createdBy: "test"
+    });
+
+    // Seed a processing fulfillment first (normally impossible if unpaid, but test the guard)
+    const fulfillment = await services.fulfillmentRepository.createFulfillment({
+      orderId: order.id,
+      provider: "digiflazz",
+      attemptNo: 1,
+      providerFulfillmentId: "DFZ-TRX-WEBHOOK",
+      providerReference: order.id,
+      status: "processing",
+      serialNumber: "SN-PENDING",
+      requestPayload: {},
+      responsePayload: {},
+      processedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    const payload = {
+      data: {
+        ref_id: order.id,
+        trx_id: "DFZ-TRX-WEBHOOK",
+        status: "Sukses",
+        rc: "00",
+        sn: "SN-LATE-SUCCESS"
+      }
+    };
+
+    const response = await request(app)
+      .post("/api/fulfillments/digiflazz/callback")
+      .send(payload);
+
+    // Should return 200 IGNORED because of transition guard (pending_payment cannot go to success)
+    expect(response.status).toBe(200);
+    expect(response.body.code).toBe("IGNORED");
+
+    const finalOrder = await services.orderRepository.findOrderById(order.id);
+    expect(finalOrder?.status).toBe("pending_payment");
+
+    const finalFulfillment = await services.fulfillmentRepository.findFulfillmentByProviderAndReference("digiflazz", order.id);
+    expect(finalFulfillment?.status).toBe("success"); // Fulfillment record updated
+    expect(finalFulfillment?.serialNumber).toBe("SN-LATE-SUCCESS");
   });
 });

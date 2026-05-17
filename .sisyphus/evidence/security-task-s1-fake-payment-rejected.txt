@@ -1,0 +1,24 @@
+# S1 Fake Payment Rejection Evidence
+
+Covered rejection scenarios:
+
+1. Invalid signature
+   - HTTP: `401 INVALID_SIGNATURE`
+   - order remains `pending_payment`
+   - no webhook event persisted
+   - sanitized audit event recorded
+
+2. Valid signature but wrong amount
+   - HTTP: `400 WEBHOOK_VALIDATION_ERROR`
+   - order remains `pending_payment`
+   - no payment record created
+   - webhook event persisted as `failed`
+
+3. Conflicting webhook after paid
+   - first valid settlement marks order/payment paid
+   - later valid `deny` webhook with same amount returns `400 WEBHOOK_VALIDATION_ERROR`
+   - order remains `paid`
+   - payment remains `paid`
+   - conflicting webhook event is marked `failed`
+
+This proves frontend/admin/client cannot fake payment success or downgrade verified success through provider-like payloads.

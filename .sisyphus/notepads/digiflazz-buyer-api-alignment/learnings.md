@@ -10,6 +10,8 @@
 - 2026-05-15: Price-list products can be safely synchronized without schema changes by using existing `products.metadata` for Digiflazz status/cutoff/stock fields and existing `sku_digiflazz` as the upsert match key.
 - 2026-05-15: Task 3 verification used mocked Buyer `/v1/price-list` responses only; active products require both `buyer_product_status` and `seller_product_status` to be true.
 
+- 2026-05-16: Next.js migration N1 scaffold created in `next-frontend/` beside existing Vite `Frontend/`; Express backend remains source of truth and frontend env is limited to `NEXT_PUBLIC_API_BASE_URL`.
+
 - 2026-05-15: Fulfillment prepaid pending recheck now uses a dedicated backend route that repeats Buyer topup with the existing provider reference/ref_id and updates the existing local fulfillment instead of creating a duplicate.
 - 2026-05-15: Digiflazz webhook HMAC validation requires preserving Express raw JSON bytes via the global parser verify hook; when `DIGIFLAZZ_WEBHOOK_SECRET` is absent, unsigned callback acceptance remains the backward-compatible mode.
 - 2026-05-15: Ping and postpaid Digiflazz webhook deliveries should be acknowledged before fulfillment event registration so prepaid transaction event idempotency remains scoped to create/update prepaid callbacks.

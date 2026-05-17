@@ -1,0 +1,21 @@
+Task: N7. Visual smoke
+Status: static/build smoke only in this pass.
+
+Routes covered by `next build` route generation:
+- `/`
+- `/dashboard`
+- `/admin`
+- `/invoice/[code]`
+- `/lacak`
+
+Browser/manual smoke:
+- Not executed in this pass; no Playwright/browser MCP was invoked.
+- Build output and static smoke test verify route/component presence.
+
+Verification:
+- `npm run build` generated route entries for `/`, `/dashboard`, `/admin`, `/invoice/[code]`, and `/lacak`.
+- `npm test` static smoke confirmed route/component markers.
+- No browser runtime screenshots captured in this pass.
+
+Known non-blocking warning:
+- Next warns about fallback `<img>` in `ProductCatalog.tsx` for arbitrary admin-uploaded external/data images. Local product assets use `next/image`.

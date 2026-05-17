@@ -1,0 +1,10 @@
+RewriteEngine On
+RewriteBase /demo/
+
+# Proxy /ppob-api to backend
+RewriteRule ^ppob-api/(.*)$ http://localhost:3001/ [P,L]
+
+# Next.js static files
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /demo/index.html [L]

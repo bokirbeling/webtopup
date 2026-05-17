@@ -11,6 +11,13 @@ import { createAdminService, type AdminService } from "./modules/admin/admin.ser
 import { createAdminMonitoringRouter, createMemberTransactionsRouter } from "./modules/dashboard/dashboard.router";
 import { createDashboardService, type DashboardService } from "./modules/dashboard/dashboard.service";
 import { createAdminDigiflazzOperationsRouter } from "./modules/dashboard/digiflazz-operations.router";
+import { createAdminAuditRouter, createProviderAuditRouter } from "./modules/audit/provider-audit.router";
+import { InMemoryProviderAuditRepository, SupabaseProviderAuditRepository } from "./modules/audit/provider-audit.repository";
+import { type ProviderAuditRepository } from "./modules/audit/provider-audit.types";
+import { InMemoryCommissionRepository, SupabaseCommissionRepository } from "./modules/commission/commission.repository";
+import { type CommissionRepository } from "./modules/commission/commission.types";
+import { createAdminCommissionRouter, createCommissionRouter } from "./modules/commission/commission.router";
+import { createCommissionService, type CommissionService } from "./modules/commission/commission.service";
 import {
   InMemoryOrderRepository,
   SupabaseOrderRepository,
@@ -29,6 +36,7 @@ import { createFulfillmentService, type FulfillmentService } from "./modules/ful
 import { createPaymentRouter } from "./modules/payment/payment.router";
 import { createPaymentService, type PaymentService } from "./modules/payment/payment.service";
 import { createInvoiceStatusRouter } from "./modules/invoice-status/invoice-status.router";
+import { createInvoiceStatusService, type InvoiceStatusService } from "./modules/invoice-status/invoice-status.service";
 import { InMemoryCatalogRepository, SupabaseCatalogRepository, type CatalogRepository } from "./modules/catalog/catalog.repository";
 import { createCatalogAdminRouter, createCatalogRouter } from "./modules/catalog/catalog.router";
 import { createDigiflazzPriceListSyncService, type DigiflazzPriceListSyncService } from "./modules/catalog/digiflazz-price-sync.service";
@@ -36,287 +44,276 @@ import { createCatalogService, type CatalogService } from "./modules/catalog/pri
 import { InMemoryPostpaidRepository, SupabasePostpaidRepository, type PostpaidRepository } from "./modules/postpaid/postpaid.repository";
 import { createPostpaidRouter } from "./modules/postpaid/postpaid.router";
 import { createPostpaidService, type PostpaidService } from "./modules/postpaid/postpaid.service";
-import {
-  createInvoiceStatusService,
-  type InvoiceStatusService
-} from "./modules/invoice-status/invoice-status.service";
-import { healthRouter } from "./routes/health";
-import { type AuditLogger, noopAuditLogger } from "./security/audit";
-import { createRateLimitMiddleware } from "./security/rate-limit";
 
-const DEFAULT_TEST_JWT_SECRET = "test-only-jwt-secret-at-least-32-bytes";
+export type MidtransConfig = Readonly<{
+  clientKey: string;
+  serverKey: string;
+  apiBaseUrl: string;
+  merchantId: string;
+}>;
+
+export type DigiflazzConfig = Readonly<{
+  username: string | null;
+  apiKey: string | null;
+  apiBaseUrl: string;
+  webhookSecret: string | null;
+  nodeEnv: "development" | "test" | "production";
+  topupOptions?: Readonly<{
+    testing?: boolean;
+    maxPrice?: number;
+    callbackUrl?: string;
+    allowDot?: boolean;
+  }>;
+}>;
 
 export type AppDependencies = Readonly<{
   authRepository?: AuthRepository;
   authService?: AuthService;
+  emailVerificationSender?: EmailVerificationSender;
   accountService?: AccountService;
   adminService?: AdminService;
   dashboardService?: DashboardService;
   orderRepository?: OrderRepository;
-  paymentRepository?: PaymentRepository;
-  fulfillmentRepository?: FulfillmentRepository;
   orderService?: OrderService;
+  paymentRepository?: PaymentRepository;
   paymentService?: PaymentService;
+  fulfillmentRepository?: FulfillmentRepository;
   fulfillmentService?: FulfillmentService;
-  invoiceStatusService?: InvoiceStatusService;
   catalogRepository?: CatalogRepository;
   catalogService?: CatalogService;
   postpaidRepository?: PostpaidRepository;
   postpaidService?: PostpaidService;
-  digiflazzPriceListSyncService?: DigiflazzPriceListSyncService;
+  providerAuditRepository?: ProviderAuditRepository;
+  commissionRepository?: CommissionRepository;
+  commissionService?: CommissionService;
+  supabaseConfig?: Readonly<{ url: string; serviceRoleKey: string; tablePrefix?: string }>;
+  authConfig?: Readonly<{ jwtSecret: string; jwtExpiresIn: string; passwordHashCost: number }>;
+  midtransConfig?: MidtransConfig;
+  digiflazzConfig?: DigiflazzConfig;
   fetchImpl?: typeof fetch;
-  supabaseConfig?: Readonly<{
-    supabaseUrl: string;
-    supabaseServiceRoleKey: string;
-    tablePrefix?: string;
-  }>;
-  authConfig?: Readonly<{
-    jwtSecret: string;
-    jwtExpiresIn: string;
-    passwordHashCost: number;
-  }>;
-  emailVerificationSender?: EmailVerificationSender;
-  authClock?: () => Date;
-  midtransConfig?: Readonly<{
-    serverKey: string;
-    apiBaseUrl: string;
-  }>;
-  digiflazzConfig?: Readonly<{
-    username: string | null;
-    apiKey: string | null;
-    apiBaseUrl: string;
-    nodeEnv: "development" | "test" | "production";
-    webhookSecret?: string | null;
-    topupOptions?: Readonly<{
-      testing?: boolean;
-      maxPrice?: number;
-      callbackUrl?: string;
-      allowDot?: boolean;
-    }>;
-  }>;
-  auditLogger?: AuditLogger;
-  rateLimit?: Readonly<{
-    windowMs: number;
-    maxRequests: number;
-  }>;
 }>;
 
-export function createApp(dependencies: AppDependencies = {}) {
+export function createApp(dependencies: AppDependencies) {
   const app = express();
-  const auditLogger = dependencies.auditLogger ?? noopAuditLogger;
-  const authRepository =
-    dependencies.authRepository ??
-    (dependencies.supabaseConfig === undefined
-      ? new InMemoryAuthRepository()
-      : new SupabaseAuthRepository({
-          supabaseUrl: dependencies.supabaseConfig.supabaseUrl,
-          supabaseServiceRoleKey: dependencies.supabaseConfig.supabaseServiceRoleKey,
-          tablePrefix: dependencies.supabaseConfig.tablePrefix
-        }));
-  const orderRepository =
-    dependencies.orderRepository ??
-    (dependencies.supabaseConfig === undefined
-      ? new InMemoryOrderRepository()
-      : new SupabaseOrderRepository({
-          supabaseUrl: dependencies.supabaseConfig.supabaseUrl,
-          supabaseServiceRoleKey: dependencies.supabaseConfig.supabaseServiceRoleKey,
-          tablePrefix: dependencies.supabaseConfig.tablePrefix
-        }));
+  const tablePrefix = dependencies.supabaseConfig?.tablePrefix ?? "";
 
-  const paymentRepository =
-    dependencies.paymentRepository ??
-    (dependencies.supabaseConfig === undefined
-      ? new InMemoryPaymentRepository(orderRepository as InMemoryOrderRepository)
-      : new SupabasePaymentRepository({
-          supabaseUrl: dependencies.supabaseConfig.supabaseUrl,
-          supabaseServiceRoleKey: dependencies.supabaseConfig.supabaseServiceRoleKey,
-          tablePrefix: dependencies.supabaseConfig.tablePrefix
-        }));
+  // 1. Audit & Ledger
+  const providerAuditRepository = dependencies.providerAuditRepository ?? (
+    dependencies.supabaseConfig
+      ? new SupabaseProviderAuditRepository(
+          dependencies.supabaseConfig.url,
+          dependencies.supabaseConfig.serviceRoleKey,
+          tablePrefix
+        )
+      : new InMemoryProviderAuditRepository()
+  );
 
-  const fulfillmentRepository =
-    dependencies.fulfillmentRepository ??
-    (dependencies.supabaseConfig === undefined
-      ? new InMemoryFulfillmentRepository(orderRepository as InMemoryOrderRepository)
-      : new SupabaseFulfillmentRepository({
-          supabaseUrl: dependencies.supabaseConfig.supabaseUrl,
-          supabaseServiceRoleKey: dependencies.supabaseConfig.supabaseServiceRoleKey,
-          tablePrefix: dependencies.supabaseConfig.tablePrefix
-        }));
+  // 2. Commission & Affiliate
+  const commissionRepository = dependencies.commissionRepository ?? (
+    dependencies.supabaseConfig
+      ? new SupabaseCommissionRepository(
+          dependencies.supabaseConfig.url,
+          dependencies.supabaseConfig.serviceRoleKey,
+          tablePrefix
+        )
+      : new InMemoryCommissionRepository()
+  );
+  const commissionService = dependencies.commissionService ?? createCommissionService({ repository: commissionRepository });
 
-  const catalogRepository =
-    dependencies.catalogRepository ??
-    (dependencies.supabaseConfig === undefined
-      ? new InMemoryCatalogRepository()
-      : new SupabaseCatalogRepository({
-          supabaseUrl: dependencies.supabaseConfig.supabaseUrl,
-          supabaseServiceRoleKey: dependencies.supabaseConfig.supabaseServiceRoleKey,
-          tablePrefix: dependencies.supabaseConfig.tablePrefix
-        }));
+  // 3. Auth
+  const authRepository = dependencies.authRepository ?? (
+    dependencies.supabaseConfig
+      ? new SupabaseAuthRepository({
+          supabaseUrl: dependencies.supabaseConfig.url,
+          supabaseServiceRoleKey: dependencies.supabaseConfig.serviceRoleKey,
+          tablePrefix
+        })
+      : new InMemoryAuthRepository()
+  );
+  const authService = dependencies.authService ?? createAuthService({ 
+    repository: authRepository,
+    jwtSecret: dependencies.authConfig?.jwtSecret ?? "test-only-jwt-secret-at-least-32-bytes",
+    jwtExpiresIn: dependencies.authConfig?.jwtExpiresIn ?? "1h",
+    passwordHashCost: dependencies.authConfig?.passwordHashCost ?? 4,
+    emailVerificationSender: dependencies.emailVerificationSender
+  });
 
-  const postpaidRepository =
-    dependencies.postpaidRepository ??
-    (dependencies.supabaseConfig === undefined
-      ? new InMemoryPostpaidRepository()
-      : new SupabasePostpaidRepository({
-          supabaseUrl: dependencies.supabaseConfig.supabaseUrl,
-          supabaseServiceRoleKey: dependencies.supabaseConfig.supabaseServiceRoleKey,
-          tablePrefix: dependencies.supabaseConfig.tablePrefix
-        }));
+  // 4. Account & Admin
+  const accountService = dependencies.accountService ?? createAccountService({ repository: authRepository });
+  const adminService = dependencies.adminService ?? createAdminService({ repository: authRepository });
 
-  const authService =
-    dependencies.authService ??
-    createAuthService({
-      repository: authRepository,
-      jwtSecret: dependencies.authConfig?.jwtSecret ?? DEFAULT_TEST_JWT_SECRET,
-      jwtExpiresIn: dependencies.authConfig?.jwtExpiresIn ?? "1h",
-      passwordHashCost: dependencies.authConfig?.passwordHashCost ?? 4,
-      clock: dependencies.authClock,
-      emailVerificationSender: dependencies.emailVerificationSender
-    });
+  // 5. Catalog & Products
+  const catalogRepository = dependencies.catalogRepository ?? (
+    dependencies.supabaseConfig
+      ? new SupabaseCatalogRepository({
+          supabaseUrl: dependencies.supabaseConfig.url,
+          supabaseServiceRoleKey: dependencies.supabaseConfig.serviceRoleKey,
+          tablePrefix
+        })
+      : new InMemoryCatalogRepository()
+  );
 
-  const accountService =
-    dependencies.accountService ??
-    createAccountService({
-      repository: authRepository
-    });
+  const priceListSyncService = createDigiflazzPriceListSyncService({
+    repository: catalogRepository,
+    digiflazzConfig: dependencies.digiflazzConfig ? {
+      username: dependencies.digiflazzConfig.username,
+      apiKey: dependencies.digiflazzConfig.apiKey,
+      apiBaseUrl: dependencies.digiflazzConfig.apiBaseUrl
+    } : { 
+      username: null, apiKey: null, apiBaseUrl: "" 
+    },
+    fetchImpl: dependencies.fetchImpl
+  });
 
-  const adminService =
-    dependencies.adminService ??
-    createAdminService({
-      repository: authRepository
-    });
+  const catalogService = dependencies.catalogService ?? createCatalogService({ 
+    repository: catalogRepository,
+    priceListSyncService
+  });
 
-  const digiflazzConfig = {
-    username: dependencies.digiflazzConfig?.username ?? null,
-    apiKey: dependencies.digiflazzConfig?.apiKey ?? null,
-    apiBaseUrl: dependencies.digiflazzConfig?.apiBaseUrl ?? "https://api.digiflazz.com"
-  };
+  // 6. Orders
+  const orderRepository = dependencies.orderRepository ?? (
+    dependencies.supabaseConfig
+      ? new SupabaseOrderRepository({
+          supabaseUrl: dependencies.supabaseConfig.url,
+          supabaseServiceRoleKey: dependencies.supabaseConfig.serviceRoleKey,
+          tablePrefix
+        })
+      : new InMemoryOrderRepository()
+  );
+  const orderService = dependencies.orderService ?? createOrderService({ 
+    repository: orderRepository,
+    catalogService,
+    commissionService
+  });
 
-  const postpaidService =
-    dependencies.postpaidService ??
-    createPostpaidService({
-      repository: postpaidRepository,
-      digiflazzConfig: {
-        ...digiflazzConfig,
-        nodeEnv: dependencies.digiflazzConfig?.nodeEnv ?? "test",
-        topupOptions: dependencies.digiflazzConfig?.topupOptions
-      },
-      fetchImpl: dependencies.fetchImpl
-    });
+  // 7. Payments
+  const paymentRepository = dependencies.paymentRepository ?? (
+    dependencies.supabaseConfig
+      ? new SupabasePaymentRepository({
+          supabaseUrl: dependencies.supabaseConfig.url,
+          supabaseServiceRoleKey: dependencies.supabaseConfig.serviceRoleKey,
+          tablePrefix
+        })
+      : new InMemoryPaymentRepository(orderRepository)
+  );
+  const paymentService = dependencies.paymentService ?? createPaymentService({
+    paymentRepository,
+    orderService,
+    commissionService,
+    midtransConfig: dependencies.midtransConfig ?? { 
+      clientKey: "", serverKey: "", apiBaseUrl: "", merchantId: "" 
+    },
+    providerAuditRepository,
+    fetchImpl: dependencies.fetchImpl
+  });
 
-  const priceListSyncService =
-    dependencies.digiflazzPriceListSyncService ??
-    createDigiflazzPriceListSyncService({
-      repository: catalogRepository,
-      digiflazzConfig,
-      fetchImpl: dependencies.fetchImpl
-    });
+  // 8. Fulfillments
+  const fulfillmentRepository = dependencies.fulfillmentRepository ?? (
+    dependencies.supabaseConfig
+      ? new SupabaseFulfillmentRepository({
+          supabaseUrl: dependencies.supabaseConfig.url,
+          supabaseServiceRoleKey: dependencies.supabaseConfig.serviceRoleKey,
+          tablePrefix
+        })
+      : new InMemoryFulfillmentRepository(orderRepository)
+  );
+  const fulfillmentService = dependencies.fulfillmentService ?? createFulfillmentService({
+    fulfillmentRepository,
+    orderService,
+    commissionService,
+    digiflazzConfig: dependencies.digiflazzConfig ?? { 
+      username: null, apiKey: null, apiBaseUrl: "", webhookSecret: null, nodeEnv: "development" 
+    },
+    providerAuditRepository,
+    fetchImpl: dependencies.fetchImpl
+  });
 
-  const catalogService =
-    dependencies.catalogService ??
-    createCatalogService({
-      repository: catalogRepository,
-      priceListSyncService
-    });
+  // 9. Postpaid
+  const postpaidRepository = dependencies.postpaidRepository ?? (
+    dependencies.supabaseConfig
+      ? new SupabasePostpaidRepository({
+          supabaseUrl: dependencies.supabaseConfig.url,
+          supabaseServiceRoleKey: dependencies.supabaseConfig.serviceRoleKey,
+          tablePrefix
+        })
+      : new InMemoryPostpaidRepository()
+  );
+  const postpaidService = dependencies.postpaidService ?? createPostpaidService({
+    repository: postpaidRepository,
+    digiflazzConfig: dependencies.digiflazzConfig ?? { 
+      username: null, apiKey: null, apiBaseUrl: "", webhookSecret: null, nodeEnv: "development" 
+    },
+    fetchImpl: dependencies.fetchImpl
+  });
 
-  const orderService =
-    dependencies.orderService ??
-    createOrderService({
-      repository: orderRepository,
-      catalogService
-    });
+  // 10. Dashboard
+  const dashboardService = dependencies.dashboardService ?? createDashboardService({
+    orderRepository,
+    paymentRepository,
+    fulfillmentRepository
+  });
 
-  const paymentService =
-    dependencies.paymentService ??
-    createPaymentService({
-      paymentRepository,
-      orderService,
-      midtransConfig: {
-        serverKey: dependencies.midtransConfig?.serverKey ?? "test-midtrans-server-key",
-        apiBaseUrl: dependencies.midtransConfig?.apiBaseUrl ?? "https://app.sandbox.midtrans.com"
-      }
-    });
-
-  const fulfillmentService =
-    dependencies.fulfillmentService ??
-    createFulfillmentService({
-      fulfillmentRepository,
-      orderService,
-      digiflazzConfig: {
-        ...digiflazzConfig,
-        nodeEnv: dependencies.digiflazzConfig?.nodeEnv ?? "test",
-        topupOptions: dependencies.digiflazzConfig?.topupOptions
-      }
-    });
-
-  const invoiceStatusService =
-    dependencies.invoiceStatusService ??
-    createInvoiceStatusService({
-      orderRepository,
-      paymentRepository,
-      fulfillmentRepository
-    });
-
-  const dashboardService =
-    dependencies.dashboardService ??
-    createDashboardService({
-      orderRepository,
-      paymentRepository,
-      fulfillmentRepository
-    });
-
-  app.disable("x-powered-by");
-  app.use(express.json({
-    verify: (request: Request, _response, buffer) => {
-      (request as Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
-    }
-  }));
-
-  const sensitiveEndpointRateLimit = createRateLimitMiddleware({
-    windowMs: dependencies.rateLimit?.windowMs ?? 60_000,
-    maxRequests: dependencies.rateLimit?.maxRequests ?? 60,
-    auditLogger
+  // 11. Invoice Status
+  const invoiceStatusService = createInvoiceStatusService({
+    orderRepository,
+    paymentRepository,
+    fulfillmentRepository
   });
 
   const authenticationMiddleware = createAuthenticationMiddleware(authService);
   const adminOnlyMiddleware = requireRoles(["admin"]);
 
-  function mountRoutes(basePath: string) {
-    app.use(basePath + "/api/auth", createAuthRouter({ authService }));
-    app.use(basePath + "/api/account", authenticationMiddleware, createAccountRouter({ accountService }));
-    app.use(basePath + "/api/account", authenticationMiddleware, createMemberTransactionsRouter({ dashboardService }));
-    app.use(basePath + "/api/admin", authenticationMiddleware, adminOnlyMiddleware, createAdminRouter({ adminService }));
-    app.use(basePath + "/api/admin", authenticationMiddleware, adminOnlyMiddleware, createAdminMonitoringRouter({ dashboardService }));
-    app.use(basePath + "/api/admin", authenticationMiddleware, adminOnlyMiddleware, createAdminDigiflazzOperationsRouter({ catalogRepository, paymentRepository, digiflazzConfig, fetchImpl: dependencies.fetchImpl }));
-    app.use(basePath + "/api/admin/catalog", authenticationMiddleware, adminOnlyMiddleware, createCatalogAdminRouter({ catalogService }));
-    app.use(basePath + "/api/catalog", createCatalogRouter({ catalogService, authService }));
-    app.use(basePath + "/api/digiflazz", authenticationMiddleware, createPostpaidRouter({ postpaidService }));
-    app.use(basePath + "/api/orders", createOrdersRouter({ orderService, authService }));
-    app.use(
-      basePath + "/api/payments",
-      sensitiveEndpointRateLimit,
-      createPaymentRouter({ paymentService, auditLogger })
-    );
-    app.use(
-      basePath + "/api/fulfillments",
-      sensitiveEndpointRateLimit,
-      createFulfillmentRouter({
-        fulfillmentService,
-        auditLogger,
-        digiflazzWebhookSecret: dependencies.digiflazzConfig?.webhookSecret ?? null
-      })
-    );
-    app.use(basePath + "/api/invoices", createInvoiceStatusRouter({ invoiceStatusService }));
-    app.use(basePath + "/health", healthRouter);
-  }
+  app.use(express.json({
+    verify: (req, _res, buf) => {
+      (req as any).rawBody = buf;
+    }
+  }));
 
-  mountRoutes("");
-  mountRoutes("/ppob-api");
+  const apiPaths = ["", "/ppob-api"];
+
+  for (const path of apiPaths) {
+    const fullPath = (p: string) => path + p;
+
+    app.use(fullPath("/api/auth"), createAuthRouter({ authService }));
+    app.use(fullPath("/api/account"), authenticationMiddleware, createAccountRouter({ accountService }));
+    app.use(fullPath("/api/account/transactions"), authenticationMiddleware, createMemberTransactionsRouter({ dashboardService }));
+    app.use(fullPath("/api/account/audit"), authenticationMiddleware, createProviderAuditRouter({ repository: providerAuditRepository }));
+    app.use(fullPath("/api/account/commission"), authenticationMiddleware, createCommissionRouter({ commissionService, repository: commissionRepository }));
+    
+    app.use(fullPath("/api/admin"), authenticationMiddleware, adminOnlyMiddleware, createAdminRouter({ adminService }));
+    app.use(fullPath("/api/admin/monitoring"), authenticationMiddleware, adminOnlyMiddleware, createAdminMonitoringRouter({ dashboardService }));
+    app.use(fullPath("/api/admin/catalog"), authenticationMiddleware, adminOnlyMiddleware, createCatalogAdminRouter({ catalogService }));
+    app.use(fullPath("/api/admin/audit"), authenticationMiddleware, adminOnlyMiddleware, createAdminAuditRouter({ repository: providerAuditRepository }));
+    app.use(fullPath("/api/admin/commission"), authenticationMiddleware, adminOnlyMiddleware, createAdminCommissionRouter({ repository: commissionRepository }));
+    app.use(fullPath("/api/admin/digiflazz/operations"), authenticationMiddleware, adminOnlyMiddleware, createAdminDigiflazzOperationsRouter({ 
+      catalogRepository, 
+      paymentRepository, 
+      digiflazzConfig: dependencies.digiflazzConfig ? {
+        username: dependencies.digiflazzConfig.username,
+        apiKey: dependencies.digiflazzConfig.apiKey,
+        apiBaseUrl: dependencies.digiflazzConfig.apiBaseUrl
+      } : { 
+        username: null, apiKey: null, apiBaseUrl: "" 
+      }, 
+      fetchImpl: dependencies.fetchImpl 
+    }));
+
+    app.use(fullPath("/api/catalog"), createCatalogRouter({ catalogService, authService }));
+    app.use(fullPath("/api/orders"), createOrdersRouter({ orderService, authService }));
+    app.use(fullPath("/api/payments"), createPaymentRouter({ 
+      paymentService
+    }));
+    app.use(fullPath("/api/fulfillments"), createFulfillmentRouter({ 
+      fulfillmentService,
+      digiflazzWebhookSecret: dependencies.digiflazzConfig?.webhookSecret ?? null
+    }));
+    app.use(fullPath("/api/digiflazz"), authenticationMiddleware, createPostpaidRouter({ postpaidService }));
+    app.use(fullPath("/api/invoices"), createInvoiceStatusRouter({ invoiceStatusService }));
+
+    app.get(fullPath("/health"), (_req, res) => {
+      res.json({ status: "ok" });
+    });
+  }
 
   return app;
 }
-
-
-
-
-

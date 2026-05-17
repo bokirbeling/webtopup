@@ -23,7 +23,7 @@ type SupabaseOrderRepositoryOptions = Readonly<{
   tablePrefix?: string;
 }>;
 
-const ORDER_SELECT = "id,order_number,customer_ref,user_id,product_code,provider,amount_minor,currency,status,metadata,base_price_snapshot,markup_snapshot,role_price_snapshot,pricing_rule_id_snapshot,created_at,updated_at";
+const ORDER_SELECT = "id,order_number,customer_ref,product_code,provider,amount_minor,currency,status,expires_at,metadata,created_at,updated_at";
 
 function asOrderStatus(value: unknown): OrderStatus {
   if (
@@ -109,6 +109,9 @@ function parseOrderRow(value: unknown): OrderRecord {
     markupSnapshot: parseNullableInteger(row.markup_snapshot),
     rolePriceSnapshot: parseNullableInteger(row.role_price_snapshot),
     pricingRuleIdSnapshot: typeof row.pricing_rule_id_snapshot === "string" ? row.pricing_rule_id_snapshot : null,
+    referralCode: typeof row.referral_code === "string" ? row.referral_code : null,
+    discountCode: typeof row.discount_code === "string" ? row.discount_code : null,
+    discountAmountMinor: parseNullableInteger(row.discount_amount_minor),
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at)
   };
@@ -178,10 +181,10 @@ export class SupabaseOrderRepository implements OrderRepository {
   }
 
   private async request(path: string, init: RequestInit = {}): Promise<Response> {
-    const scopedPath = this.options.tablePrefix === undefined
+    const scopedPath = this.options.tablePrefix === undefined || this.options.tablePrefix === ""
       ? path
       : path.replace(
-          /\/rest\/v1\/(orders|status_history)(?=\?)/,
+          /\/rest\/v1\/(orders|status_history)\b/g,
           (_match, tableName: string) => "/rest/v1/" + this.options.tablePrefix + tableName
         );
     const headers: Record<string, string> = {
@@ -418,7 +421,10 @@ export class InMemoryOrderRepository implements OrderRepository {
       amountMinor: input.amountMinor,
       currency: input.currency,
       status: input.status,
-      metadata: { ...input.metadata },
+      referralCode: input.referralCode,
+      discountCode: input.discountCode,
+      discountAmountMinor: input.discountAmountMinor,
+      metadata: input.metadata,
       basePriceSnapshot: input.basePriceSnapshot,
       markupSnapshot: input.markupSnapshot,
       rolePriceSnapshot: input.rolePriceSnapshot,

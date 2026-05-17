@@ -1,0 +1,28 @@
+Task: N2. Port landing and product catalog UI to Next.js
+Status: implemented by main agent.
+
+Implemented:
+- `next-frontend/components/ProductCatalog.tsx`
+- `next-frontend/lib/api.ts`
+- `next-frontend/app/page.tsx` imports the catalog section.
+- `next-frontend/public/product-assets/*` copied from the approved current frontend product assets.
+
+Behavior:
+- Fetches backend catalog from `NEXT_PUBLIC_API_BASE_URL + /api/catalog/products`.
+- Groups product category filter from backend/database data.
+- Supports search by product name, SKU, or provider.
+- Uses product metadata `image_url` or `category_image_url` first, then local category images.
+- Uses `next/image` for local `/product-assets/*` images, with fallback `<img>` for admin-uploaded external/data URLs.
+- Preserves checkout payload shape with `product_id`, `product_code`, `provider`, `amount_minor`, `currency`, and metadata.
+- Does not call Digiflazz directly from the browser.
+
+Verification:
+- `npm run lint`: passed. Note: one non-blocking Next warning remains for fallback `<img>` used only for arbitrary admin-uploaded external/data image URLs; local product assets use `next/image`.
+- `npm run typecheck`: passed.
+- `npm run build`: passed with Next.js 15.5.18.
+- `lsp_diagnostics` on `ProductCatalog.tsx`: 0 diagnostics.
+- Secret/anti-pattern grep on Next TypeScript source: no matches for service-role/JWT/Digiflazz/Midtrans/SMTP/SSH secrets.
+
+Route result:
+- `/` now includes the migrated product catalog section.
+- `/dashboard`, `/admin`, `/invoice/[code]`, `/lacak` remain scaffold pages for later tasks.

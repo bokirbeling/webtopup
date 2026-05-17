@@ -1,9 +1,28 @@
 import { Zap, Phone, Mail, MapPin, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
 
 const footerLinks = {
-  Layanan: ['Pulsa & Data', 'Token Listrik', 'BPJS Kesehatan', 'E-Wallet', 'Top Up Game', 'PDAM'],
-  Perusahaan: ['Tentang Kami', 'Karir', 'Blog', 'Kemitraan', 'Hubungi Kami'],
-  Bantuan: ['Pusat Bantuan', 'Cara Bayar', 'Kebijakan Refund', 'Syarat & Ketentuan', 'Kebijakan Privasi'],
+  Layanan: [
+    { label: 'Pulsa & Data', href: '/' },
+    { label: 'Token Listrik', href: '/' },
+    { label: 'BPJS Kesehatan', href: '/' },
+    { label: 'E-Wallet', href: '/' },
+    { label: 'Top Up Game', href: '/' },
+    { label: 'PDAM', href: '/' },
+  ],
+  Perusahaan: [
+    { label: 'Tentang Kami', href: '/' },
+    { label: 'Karir', href: '/' },
+    { label: 'Blog', href: '/' },
+    { label: 'Kemitraan', href: '/' },
+    { label: 'Hubungi Kami', href: '/' },
+  ],
+  Bantuan: [
+    { label: 'Pusat Bantuan', href: '/' },
+    { label: 'Cara Bayar', href: '/' },
+    { label: 'Kebijakan Refund', href: '/' },
+    { label: 'Syarat & Ketentuan', href: '/' },
+    { label: 'Kebijakan Privasi', href: '/' },
+  ],
 };
 
 const socials = [
@@ -86,12 +105,12 @@ export default function Footer() {
               <h4 className="text-white font-semibold text-sm mb-4">{group}</h4>
               <ul className="space-y-2">
                 {links.map((link) => (
-                  <li key={link}>
+                  <li key={link.label}>
                     <a
-                      href="#"
+                      href={link.href}
                       className="text-sm hover:text-white hover:translate-x-0.5 transition-all inline-block"
                     >
-                      {link}
+                      {link.label}
                     </a>
                   </li>
                 ))}

@@ -1,9 +1,12 @@
 import { Buffer } from "node:buffer";
 
-import { OrderTransitionError, type OrderService } from "../order/order.service";
+import { OrderTransitionError } from "../order/order.transition.service";
+import { type OrderService } from "../order/order.service";
+import { type CommissionService } from "../commission/commission.service";
 import { type PaymentRepository } from "./payment.repository";
 import { verifyMidtransSignature } from "./payment.signature";
 import { type MidtransWebhookPayload } from "./payment.types";
+import { type ProviderAuditRepository } from "../audit/provider-audit.types";
 
 type MidtransConfig = Readonly<{
   serverKey: string;
@@ -13,7 +16,9 @@ type MidtransConfig = Readonly<{
 type PaymentServiceOptions = Readonly<{
   paymentRepository: PaymentRepository;
   orderService: OrderService;
+  commissionService?: CommissionService;
   midtransConfig: MidtransConfig;
+  providerAuditRepository?: ProviderAuditRepository;
   fetchImpl?: typeof fetch;
   clock?: () => Date;
 }>;
@@ -139,6 +144,56 @@ function parseGrossAmountToMinor(grossAmount: string): number {
   return Math.round(parsed);
 }
 
+function assertWebhookAmountMatchesOrder(input: {
+  grossAmountMinor: number;
+  orderAmountMinor: number;
+  orderId: string;
+}) {
+  if (input.grossAmountMinor !== input.orderAmountMinor) {
+    throw new PaymentValidationError(
+      `Midtrans gross_amount mismatch for order ${input.orderId}. Expected ${input.orderAmountMinor}, received ${input.grossAmountMinor}.`
+    );
+  }
+}
+
+function assertWebhookDoesNotConflictWithExistingPayment(input: {
+  existingPayment: Awaited<ReturnType<PaymentRepository["findPaymentByProviderAndReference"]>>;
+  grossAmountMinor: number;
+  paymentStatus: "pending" | "paid" | "failed" | "expired";
+}) {
+  if (!input.existingPayment) {
+    return;
+  }
+
+  if (input.existingPayment.amountMinor !== input.grossAmountMinor) {
+    throw new PaymentValidationError(
+      `Midtrans gross_amount mismatch for existing payment ${input.existingPayment.id}. Expected ${input.existingPayment.amountMinor}, received ${input.grossAmountMinor}.`
+    );
+  }
+
+  if (input.existingPayment.status === "paid" && input.paymentStatus !== "paid") {
+    throw new PaymentValidationError(
+      `Conflicting Midtrans webhook cannot move paid payment ${input.existingPayment.id} to ${input.paymentStatus}.`
+    );
+  }
+}
+
+function assertPaidWebhookCanMutateOrder(input: {
+  orderStatus: string;
+  targetOrderStatus: "paid" | "failed" | "expired" | null;
+  orderId: string;
+}) {
+  if (input.targetOrderStatus !== "paid") {
+    return;
+  }
+
+  if (input.orderStatus === "expired" || input.orderStatus === "failed") {
+    throw new PaymentValidationError(
+      `Paid Midtrans webhook rejected because order ${input.orderId} is already ${input.orderStatus}.`
+    );
+  }
+}
+
 async function readJson(response: Response): Promise<unknown> {
   const bodyText = await response.text();
 
@@ -238,6 +293,29 @@ export function createPaymentService(options: PaymentServiceOptions): PaymentSer
         updatedAt: now
       });
 
+      if (options.providerAuditRepository) {
+        await options.providerAuditRepository.recordProviderEvent({
+          orderId: order.id,
+          paymentId: payment.id,
+          fulfillmentId: null,
+          provider: "midtrans",
+          eventType: "api_response_create_payment",
+          providerReference: order.id,
+          providerStatus: payment.status,
+          providerCode: null,
+          providerMessage: null,
+          amountMinor: order.amountMinor,
+          skuDigiflazz: null,
+          customerNoMasked: null,
+          serialNumber: null,
+          signatureVerified: true,
+          amountMatched: true,
+          idempotencyKey: input.idempotencyKey,
+          rawPayload: responseObject,
+          safeSummary: `Midtrans Snap payment created. Status: ${payment.status}`
+        });
+      }
+
       return {
         paymentId: payment.id,
         orderId: payment.orderId,
@@ -300,8 +378,36 @@ export function createPaymentService(options: PaymentServiceOptions): PaymentSer
         throw new PaymentValidationError(`Order ${parsed.orderId} was not found.`);
       }
 
+      const grossAmountMinor = parseGrossAmountToMinor(parsed.grossAmount);
       const targetOrderStatus = mapMidtransTransactionToOrderStatus(parsed.transactionStatus, parsed.fraudStatus);
       const paymentStatus = mapMidtransTransactionToPaymentStatus(parsed.transactionStatus, parsed.fraudStatus);
+
+      try {
+        assertWebhookAmountMatchesOrder({
+          grossAmountMinor,
+          orderAmountMinor: order.amountMinor,
+          orderId: order.id
+        });
+        assertWebhookDoesNotConflictWithExistingPayment({
+          existingPayment,
+          grossAmountMinor,
+          paymentStatus
+        });
+        assertPaidWebhookCanMutateOrder({
+          orderStatus: order.status,
+          targetOrderStatus,
+          orderId: order.id
+        });
+      } catch (error) {
+        await options.paymentRepository.updateWebhookEventState({
+          eventId: registration.event.id,
+          processingState: "failed",
+          processedAt: now,
+          errorMessage: error instanceof Error ? error.message : "Midtrans webhook verification failed."
+        });
+
+        throw error;
+      }
 
       let payment = existingPayment;
       if (!payment) {
@@ -311,7 +417,7 @@ export function createPaymentService(options: PaymentServiceOptions): PaymentSer
           idempotencyKey: `midtrans-webhook:${parsed.transactionId ?? eventKey}`,
           providerPaymentId: parsed.transactionId,
           providerReference: parsed.orderId,
-          amountMinor: parseGrossAmountToMinor(parsed.grossAmount),
+          amountMinor: grossAmountMinor,
           currency: "IDR",
           status: paymentStatus,
           paidAt: paymentStatus === "paid" ? now : null,
@@ -343,6 +449,29 @@ export function createPaymentService(options: PaymentServiceOptions): PaymentSer
         };
       }
 
+      if (options.providerAuditRepository) {
+        await options.providerAuditRepository.recordProviderEvent({
+          orderId: order.id,
+          paymentId: payment.id,
+          fulfillmentId: null,
+          provider: "midtrans",
+          eventType: "webhook",
+          providerReference: parsed.transactionId ?? parsed.orderId,
+          providerStatus: paymentStatus,
+          providerCode: parsed.statusCode,
+          providerMessage: parsed.transactionStatus,
+          amountMinor: grossAmountMinor,
+          skuDigiflazz: null,
+          customerNoMasked: null,
+          serialNumber: null,
+          signatureVerified: true,
+          amountMatched: true,
+          idempotencyKey: eventKey,
+          rawPayload: toRecord(payload),
+          safeSummary: `Midtrans webhook: ${parsed.transactionStatus}. Order status -> ${targetOrderStatus}`
+        });
+      }
+
       if (order.status === targetOrderStatus) {
         await options.paymentRepository.updateWebhookEventState({
           eventId: registration.event.id,
@@ -359,18 +488,20 @@ export function createPaymentService(options: PaymentServiceOptions): PaymentSer
 
       try {
         await options.orderService.transitionOrderStatus({
-          orderId: parsed.orderId,
+          orderId: order.id,
           toStatus: targetOrderStatus,
-          note: `midtrans_${parsed.transactionStatus}`,
+          note: `midtrans_webhook:${parsed.transactionStatus}`,
           metadata: {
-            provider,
-            webhookEventId: registration.event.id,
-            paymentId: payment.id,
-            transactionStatus: parsed.transactionStatus,
-            transactionId: parsed.transactionId
+            transaction_id: parsed.transactionId,
+            status_code: parsed.statusCode
           },
-          createdBy: "midtrans_webhook"
+          createdBy: "system"
         });
+
+        // S5: Mark commission payable if order is paid
+        if (targetOrderStatus === "paid" && options.commissionService) {
+          await options.commissionService.markCommissionPayable(order.id);
+        }
       } catch (error) {
         if (error instanceof OrderTransitionError) {
           await options.paymentRepository.updateWebhookEventState({

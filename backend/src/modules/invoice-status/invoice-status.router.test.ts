@@ -24,14 +24,17 @@ function createStatusFixture() {
     fulfillmentRepository
   });
 
+  const app = createApp({
+    orderService,
+    paymentRepository,
+    fulfillmentRepository
+  });
+
   return {
     orderService,
     paymentRepository,
     fulfillmentRepository,
-    app: createApp({
-      orderService,
-      invoiceStatusService
-    })
+    app
   };
 }
 
@@ -130,7 +133,7 @@ describe("GET /api/invoices/:invoiceCode/status", () => {
   });
 
   it("returns a safe not-found response for an invalid invoice", async () => {
-    const response = await request(createApp()).get("/api/invoices/INV-NOT-FOUND/status");
+    const response = await request(createApp({})).get("/api/invoices/INV-NOT-FOUND/status");
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({
@@ -142,7 +145,7 @@ describe("GET /api/invoices/:invoiceCode/status", () => {
   });
 
   it("does not expose unrestricted invoice or order listing", async () => {
-    const app = createApp();
+    const app = createApp({});
 
     const invoiceListResponse = await request(app).get("/api/invoices");
     const orderListResponse = await request(app).get("/api/orders");

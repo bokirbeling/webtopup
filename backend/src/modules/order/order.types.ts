@@ -19,6 +19,8 @@ export type CreateGuestOrderInput = Readonly<{
   provider: string;
   amountMinor: number;
   currency: string;
+  referralCode?: string | null;
+  discountCode?: string | null;
   metadata: Record<string, unknown>;
 }>;
 
@@ -38,6 +40,9 @@ export type OrderRecord = Readonly<{
   amountMinor: number;
   currency: string;
   status: OrderStatus;
+  referralCode: string | null;
+  discountCode: string | null;
+  discountAmountMinor: number | null;
   metadata: Record<string, unknown>;
   basePriceSnapshot: number | null;
   markupSnapshot: number | null;
@@ -68,6 +73,9 @@ export type CreateOrderRecordInput = Readonly<{
   amountMinor: number;
   currency: string;
   status: OrderStatus;
+  referralCode: string | null;
+  discountCode: string | null;
+  discountAmountMinor: number | null;
   metadata: Record<string, unknown>;
   basePriceSnapshot: number | null;
   markupSnapshot: number | null;

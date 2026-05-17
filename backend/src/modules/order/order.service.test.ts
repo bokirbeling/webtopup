@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@jest/globals";
 
 import { InMemoryOrderRepository } from "./order.repository";
-import { OrderTransitionError, createOrderService } from "./order.service";
+import { createOrderService } from "./order.service";
+import { OrderTransitionError } from "./order.transition.service";
 
 describe("order transition engine", () => {
   it("rejects backward transitions", async () => {

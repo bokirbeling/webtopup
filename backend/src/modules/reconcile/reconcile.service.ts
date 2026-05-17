@@ -1,7 +1,8 @@
 import { type FulfillmentRepository } from "../fulfillment/fulfillment.repository";
 import { type FulfillmentRecord } from "../fulfillment/fulfillment.types";
 import { type OrderRepository } from "../order/order.repository";
-import { OrderTransitionError, type OrderService } from "../order/order.service";
+import { OrderTransitionError } from "../order/order.transition.service";
+import { type OrderService } from "../order/order.service";
 import { type OrderRecord, type OrderStatus } from "../order/order.types";
 import { type PaymentRepository } from "../payment/payment.repository";
 import { type PaymentRecord } from "../payment/payment.types";

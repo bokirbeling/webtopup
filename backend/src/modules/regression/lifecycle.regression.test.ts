@@ -152,10 +152,7 @@ function createLifecycleFixture(options: {
     catalogRepository: options.catalogRepository,
     orderService,
     paymentService,
-    fulfillmentService,
-    invoiceStatusService,
-    auditLogger,
-    rateLimit: { windowMs: 60_000, maxRequests: 100 }
+    fulfillmentService
   });
 
   return {

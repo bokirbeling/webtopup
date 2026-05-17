@@ -37,6 +37,7 @@ function createPostpaidApp(fetchImpl: jest.MockedFunction<typeof fetch>, reposit
         username: "buyer-user",
         apiKey: "buyer-api-key",
         apiBaseUrl: "https://api.digiflazz.test",
+        webhookSecret: null,
         nodeEnv: "test",
         topupOptions: {
           testing: true

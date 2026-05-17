@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { InMemoryOrderRepository } from "../order/order.repository";
+import { type OrderRepository } from "../order/order.repository";
 import { type PaymentOrderLookup, type PaymentRecord, type WebhookEventRecord } from "./payment.types";
 
 export interface PaymentRepository {
@@ -521,7 +522,7 @@ export class InMemoryPaymentRepository implements PaymentRepository {
   private readonly paymentKeyByProviderReference = new Map<string, string>();
   private readonly webhookEventByProviderKey = new Map<string, WebhookEventRecord>();
 
-  constructor(private readonly orderRepository: InMemoryOrderRepository) {}
+  constructor(private readonly orderRepository: OrderRepository) {}
 
   async findOrderById(orderId: string): Promise<PaymentOrderLookup | null> {
     const order = await this.orderRepository.findOrderById(orderId);

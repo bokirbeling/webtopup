@@ -1,0 +1,26 @@
+# S1 Midtrans Truth Source Evidence
+
+Implemented hardening in `backend/src/modules/payment/payment.service.ts`.
+
+Checks added before payment/order mutation:
+
+- Midtrans signature must be valid.
+- Webhook event is deduplicated by provider/event key.
+- `gross_amount` must match stored order/payment amount.
+- Existing paid payment cannot be downgraded by later failed/expired webhook.
+- Paid webhook cannot mark an already failed/expired order as paid.
+- Failed verification updates webhook event state to `failed` where an event was registered.
+
+Focused verification:
+
+```text
+npm test -- --runTestsByPath src/modules/payment/payment.router.test.ts
+```
+
+Result: PASS, 1 suite / 6 tests.
+
+Notes:
+
+- Existing invalid-signature test still proves no event registration before signature verification.
+- New wrong-amount test proves signed but mismatched webhook does not create payment or mutate order.
+- New conflicting-webhook test proves a paid payment remains paid if a later signed `deny` webhook arrives.

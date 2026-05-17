@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { type CatalogService } from "../catalog/pricing.service";
+import { type CommissionService } from "../commission/commission.service";
 import { type OrderRepository } from "./order.repository";
 import {
   OrderTransitionError,
@@ -17,6 +18,7 @@ import {
 type OrderServiceOptions = Readonly<{
   repository: OrderRepository;
   catalogService?: CatalogService;
+  commissionService?: CommissionService;
   idGenerator?: () => string;
   invoiceCodeGenerator?: (createdAt: Date) => string;
   clock?: () => Date;
@@ -32,6 +34,7 @@ type CreateOrderResult = Readonly<{
 export type OrderService = Readonly<{
   createOrder(input: CreateOrderInput): Promise<CreateOrderResult>;
   createGuestOrder(input: CreateGuestOrderInput): Promise<CreateOrderResult>;
+  findOrderById(orderId: string): Promise<OrderRecord | null>;
   transitionOrderStatus(input: OrderTransitionInput): Promise<OrderRecord>;
 }>;
 
@@ -100,17 +103,39 @@ export function createOrderService(options: OrderServiceOptions): OrderService {
       pricingRuleIdSnapshot = pricedProduct.pricing.ruleId;
     }
 
-    await options.repository.createOrder({
+    // S5: Calculate commission
+    let commissionId: string | null = null;
+    let finalAmountMinor = amountMinor;
+    if (options.commissionService) {
+      const commissionResult = await options.commissionService.calculateAndRecordCommission({
+        orderId,
+        resellerId: input.userId,
+        referralCode: input.referralCode ?? null,
+        discountCode: input.discountCode ?? null,
+        grossSaleMinor: amountMinor,
+        basePriceMinor: basePriceSnapshot ?? amountMinor
+      });
+      commissionId = commissionResult.commissionId;
+      finalAmountMinor = commissionResult.netSaleMinor;
+    }
+
+    const order = await options.repository.createOrder({
       id: orderId,
       orderNumber: invoiceCode,
       customerRef: input.customerRef,
       userId: input.userId,
       productCode,
       provider,
-      amountMinor,
+      amountMinor: finalAmountMinor,
       currency: input.currency,
       status: "created",
-      metadata: input.metadata,
+      referralCode: input.referralCode ?? null,
+      discountCode: input.discountCode ?? null,
+      discountAmountMinor: null, // Set by commission service if applicable
+      metadata: {
+        ...input.metadata,
+        commission_id: commissionId
+      },
       basePriceSnapshot,
       markupSnapshot,
       rolePriceSnapshot,
@@ -119,61 +144,66 @@ export function createOrderService(options: OrderServiceOptions): OrderService {
       updatedAt: createdAt
     });
 
-    await service.transitionOrderStatus({
-      orderId,
-      toStatus: "pending_payment",
+    await options.repository.createStatusHistory({
+      orderId: order.id,
+      fromStatus: null,
+      toStatus: "created",
       note: "order_created",
       metadata: {
         source: "orders_api"
       },
-      createdBy: "system"
+      createdBy: "system",
+      createdAt
     });
 
     return {
-      orderId,
-      invoiceCode,
-      status: "pending_payment"
+      orderId: order.id,
+      invoiceCode: order.orderNumber,
+      status: order.status
     };
   }
 
-  const service: OrderService = {
-    createOrder,
+  async function createGuestOrder(input: CreateGuestOrderInput): Promise<CreateOrderResult> {
+    return createOrder({
+      ...input,
+      userId: null,
+      roleType: "pengguna"
+    });
+  }
 
-    async createGuestOrder(input: CreateGuestOrderInput) {
-      return createOrder({
-        ...input,
-        userId: null,
-        roleType: "pengguna"
-      });
-    },
+  async function findOrderById(orderId: string): Promise<OrderRecord | null> {
+    return options.repository.findOrderById(orderId);
+  }
 
-    async transitionOrderStatus(input: OrderTransitionInput) {
-      const existingOrder = await options.repository.findOrderById(input.orderId);
-
-      if (!existingOrder) {
-        throw new OrderNotFoundError(input.orderId);
-      }
-
-      transitionService.ensureForwardOnlyTransition(existingOrder.status, input.toStatus);
-
-      const updatedAt = clock();
-      const updatedOrder = await options.repository.updateOrderStatus(existingOrder.id, input.toStatus, updatedAt);
-
-      await options.repository.createStatusHistory({
-        orderId: updatedOrder.id,
-        fromStatus: existingOrder.status,
-        toStatus: input.toStatus,
-        note: input.note ?? null,
-        metadata: input.metadata ?? {},
-        createdBy: input.createdBy ?? "system",
-        createdAt: updatedAt
-      });
-
-      return updatedOrder;
+  async function transitionOrderStatus(input: OrderTransitionInput): Promise<OrderRecord> {
+    const order = await options.repository.findOrderById(input.orderId);
+    if (!order) {
+      throw new OrderNotFoundError(input.orderId);
     }
+
+    transitionService.ensureForwardOnlyTransition(order.status, input.toStatus);
+    const nextStatus = input.toStatus;
+    const transitionNote = `Transition to ${input.toStatus}`;
+
+    const updatedOrder = await options.repository.updateOrderStatus(input.orderId, nextStatus, clock());
+
+    await options.repository.createStatusHistory({
+      orderId: input.orderId,
+      fromStatus: order.status,
+      toStatus: nextStatus,
+      note: input.note ?? transitionNote,
+      metadata: input.metadata ?? {},
+      createdBy: input.createdBy ?? "system",
+      createdAt: clock()
+    });
+
+    return updatedOrder;
+  }
+
+  return {
+    createOrder,
+    createGuestOrder,
+    findOrderById,
+    transitionOrderStatus
   };
-
-  return service;
 }
-
-export { OrderTransitionError };

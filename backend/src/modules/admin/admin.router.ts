@@ -5,6 +5,8 @@ import { type Response, Router } from "express";
 import { toUserResponse } from "../account/account.router";
 import { AdminEmailUnverifiedError, AdminUserNotFoundError, type AdminService } from "./admin.service";
 import { type ProductUploadService } from "./product-upload.service";
+import { requireAuth, requireRole } from "../../middleware/auth.middleware";
+import { adminLimiter } from "../../middleware/rate-limit.middleware";
 
 export type AdminRouterDependencies = Readonly<{
   adminService: AdminService;
@@ -41,6 +43,11 @@ function handleAdminError(error: unknown, response: Response) {
 
 export function createAdminRouter(dependencies: AdminRouterDependencies) {
   const adminRouter = Router();
+
+  // Apply auth and rate limiting to all admin routes
+  adminRouter.use(requireAuth);
+  adminRouter.use(requireRole('admin'));
+  adminRouter.use(adminLimiter);
 
   adminRouter.post("/products/upload", async (request, response) => {
     if (dependencies.productUploadService === undefined) {

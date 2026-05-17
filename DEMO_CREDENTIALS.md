@@ -1,131 +1,127 @@
-# Demo Account Credentials
+# Demo Account Credentials - LENGKAP
 
 ## Demo Environment
 
 **URL**: https://adnanpay.com/demo/
 
-## Test Accounts
+## Semua Akun Demo ✓ SUDAH DIBUAT
 
-### Guest Checkout (No Login Required)
-- **Flow**: Select product → Enter customer details → Pay
-- **No registration needed**
-- **Available products**: 5 development products only
-  - GoPay 10.000 (gopay10)
-  - GoPay 20.000 (gopay20)
-  - GoPay 25.000 (gopay25)
-  - GoPay 50.000 (gopay50)
-  - Telkomsel 5.000 (telkomsel5)
-
-### Reseller Account
-**Status**: Can be created via registration
-
-**How to create**:
-1. Go to https://adnanpay.com/demo/dashboard
-2. Click "Daftar" (Register)
-3. Enter email and password (min 8 characters)
-4. Click "Buat akun member"
-5. Login with created credentials
-
-**Features**:
-- View own transactions
-- Request reseller status
-- View commission (if approved)
-- Request payout
-
-### Admin Account ✓ CREATED
+### 1. Admin Account ✓
 **Email**: admin@adnanpay.com  
 **Password**: Admin123!@#  
 **Role**: admin  
 **User ID**: 52e58c78-e97e-4d3f-8087-7283391bcc1c  
 **Login URL**: https://adnanpay.com/demo/admin
 
-**Features**:
-- Product management
-- Price markup configuration
-- User management (approve/reject resellers)
-- Transaction monitoring
-- Email management
-- Bulk product upload
+**Fitur**:
+- Kelola produk (tambah, edit, hapus, upload Excel)
+- Atur markup harga untuk pengguna dan reseller
+- Kelola user (approve/reject reseller)
+- Monitor transaksi semua user
+- Kirim email manual/bulk
+- Lihat log provider (Midtrans, Digiflazz)
 
-## Development API Limitations
+---
 
-**IMPORTANT**: Demo environment uses Digiflazz Development API which only supports 5 products:
-- gopay10
-- gopay20
-- gopay25
-- gopay50
-- telkomsel5
+### 2. Reseller Account ✓
+**Email**: reseller@adnanpay.com  
+**Password**: Reseller123!  
+**Role**: seller (reseller approved)  
+**User ID**: 9649fe40-8e24-49dc-9d10-61dfb7723b8c  
+**Status**: Approved reseller  
+**Login URL**: https://adnanpay.com/demo/dashboard
 
-**Other products** (from 7,794 scraped products) will appear in catalog but **will fail** during checkout/fulfillment because they don't exist in development API.
+**Fitur**:
+- Lihat transaksi sendiri
+- Lihat komisi dari penjualan
+- Request payout
+- Harga khusus reseller (dengan markup)
 
-## Production Credentials (Pending)
+---
 
-Production environment requires:
-1. **Midtrans Production Credentials**
-   - Server Key
-   - Client Key
-   - Merchant ID
+### 3. Affiliate Account ✓
+**Email**: affiliate@adnanpay.com  
+**Password**: Affiliate123!  
+**Role**: pengguna (user biasa)  
+**User ID**: 05e2eab0-1a31-4f69-ba46-319c2e7b1ecb  
+**Affiliate Code**: AFF001  
+**Login URL**: https://adnanpay.com/demo/dashboard
 
-2. **Digiflazz Production Credentials**
-   - Username
-   - API Key
-   - Production API Base URL
+**Fitur**:
+- Lihat transaksi sendiri
+- Track referral via kode affiliate
+- Lihat komisi dari referral
+- Request payout
 
-3. **Legal Documentation**
-   - Business registration
-   - Tax registration (NPWP)
-   - API agreements signed
+---
 
-**Status**: Waiting for user to complete legal requirements
+### 4. Guest Checkout (Tanpa Login)
+**Tidak perlu akun**  
+**Flow**: Pilih produk → Isi data pelanggan → Bayar  
+**URL**: https://adnanpay.com/demo/
 
-## Testing Recommendations
+**Produk tersedia** (5 produk development):
+- GoPay 10.000 (gopay10)
+- GoPay 20.000 (gopay20)
+- GoPay 25.000 (gopay25)
+- GoPay 50.000 (gopay50)
+- Telkomsel 5.000 (telkomsel5)
 
-### For Guest Flow
-1. Go to https://adnanpay.com/demo/
-2. Select "GoPay 10.000"
-3. Enter customer details:
-   - Customer ID: 081234567890 (any phone number)
-   - Email: test@example.com (optional)
-4. Click "Bayar Sekarang"
-5. Complete Midtrans sandbox payment
-6. Track order via invoice code
+---
 
-### For Reseller Flow
-1. Register new account at /dashboard
-2. Login with created credentials
-3. View dashboard (transactions, commission)
-4. Request reseller status (requires admin approval)
-5. After approval: View commission, request payout
+## Panduan Test Cepat
 
-### For Admin Flow
-1. Create admin account (see above)
-2. Login at /admin
-3. Test features:
-   - Product management
-   - Price markup
-   - User management
-   - Transaction monitoring
-   - Email management
+### Test Admin
+1. Buka https://adnanpay.com/demo/admin
+2. Login: admin@adnanpay.com / Admin123!@#
+3. Test: Kelola produk, atur harga, approve reseller
 
-## Security Notes
+### Test Reseller
+1. Buka https://adnanpay.com/demo/dashboard
+2. Login: reseller@adnanpay.com / Reseller123!
+3. Test: Lihat transaksi, komisi, request payout
 
-- All demo accounts use `demo_` prefixed tables
-- Demo data is isolated from production
-- Demo uses Midtrans sandbox (no real money)
-- Demo uses Digiflazz development API (limited products)
-- Email notifications use demo.mail@adnanpay.com
+### Test Affiliate
+1. Buka https://adnanpay.com/demo/dashboard
+2. Login: affiliate@adnanpay.com / Affiliate123!
+3. Test: Lihat transaksi, track referral, komisi
 
-## Support
+### Test Guest
+1. Buka https://adnanpay.com/demo/
+2. Pilih "GoPay 10.000"
+3. Isi: Customer ID (081234567890), Email (opsional)
+4. Bayar via Midtrans sandbox
+5. Track order via invoice code
 
-For issues or questions:
-- Check logs: Backend logs at /home/adnanpay/ppob-backend/logs/
-- Check database: Supabase project `wprbrqmimwwukrhuawms`
-- Check frontend: Browser console at https://adnanpay.com/demo/
+---
 
-## Next Steps
+## Ringkasan Akun
 
-1. Create admin account in demo database
-2. Test all flows (guest, reseller, admin)
-3. Fix any bugs found
-4. Prepare production credentials
-5. Deploy to production after legal completion
+| Tipe | Email | Password | Role | Status |
+|------|-------|----------|------|--------|
+| Admin | admin@adnanpay.com | Admin123!@# | admin | ✓ Active |
+| Reseller | reseller@adnanpay.com | Reseller123! | seller | ✓ Approved |
+| Affiliate | affiliate@adnanpay.com | Affiliate123! | pengguna | ✓ Active |
+| Guest | - | - | - | ✓ No login |
+
+**Semua akun sudah dibuat dan siap digunakan!**
+
+---
+
+## Limitasi Development API
+
+**PENTING**: Demo menggunakan Digiflazz Development API yang hanya support 5 produk:
+- gopay10, gopay20, gopay25, gopay50, telkomsel5
+
+Produk lain (dari 7,794 produk yang di-scrape) akan muncul di katalog tapi **akan gagal** saat checkout.
+
+---
+
+## Kredensial Production (Pending)
+
+Menunggu:
+1. Midtrans Production Credentials
+2. Digiflazz Production Credentials  
+3. Dokumen Legal (SIUP, NPWP, Perjanjian API)
+
+**Status**: User sedang urus legal

@@ -117,6 +117,73 @@ function parseOrderRow(value: unknown): OrderRecord {
   };
 }
 
+function parseGuestOrderRow(value: unknown): OrderRecord {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid guest order payload from persistence layer.");
+  }
+
+  const row = value as Record<string, unknown>;
+
+  const amountMinorRaw = row.final_amount_minor ?? row.total_amount_minor;
+  const amountMinor =
+    typeof amountMinorRaw === "number"
+      ? amountMinorRaw
+      : typeof amountMinorRaw === "string"
+        ? Number.parseInt(amountMinorRaw, 10)
+        : Number.NaN;
+
+  const items = Array.isArray(row.guest_order_items) ? row.guest_order_items : [];
+  const firstItem = items[0] as Record<string, unknown> | undefined;
+
+  let mappedStatus: OrderStatus = "created";
+  const statusStr = typeof row.status === "string" ? row.status : "";
+  if (statusStr === "pending") {
+    mappedStatus = "pending_payment";
+  } else if (statusStr === "success") {
+    mappedStatus = "success";
+  } else if (statusStr === "failed") {
+    mappedStatus = "failed";
+  } else {
+    try {
+      mappedStatus = asOrderStatus(row.status);
+    } catch {
+      mappedStatus = "pending_payment";
+    }
+  }
+
+  if (
+    typeof row.id !== "string" ||
+    typeof row.order_number !== "string" ||
+    !Number.isFinite(amountMinor) ||
+    typeof row.created_at !== "string" ||
+    typeof row.updated_at !== "string"
+  ) {
+    throw new Error("Missing required guest order fields from persistence layer.");
+  }
+
+  return {
+    id: row.id,
+    orderNumber: row.order_number,
+    customerRef: typeof firstItem?.customer_phone === "string" ? firstItem.customer_phone : null,
+    userId: typeof row.user_id === "string" ? row.user_id : null,
+    productCode: typeof firstItem?.product_sku === "string" ? firstItem.product_sku : "UNKNOWN",
+    provider: typeof firstItem?.product_name === "string" ? firstItem.product_name : "UNKNOWN",
+    amountMinor,
+    currency: "IDR",
+    status: mappedStatus,
+    metadata: ensureObject(row.metadata),
+    basePriceSnapshot: null,
+    markupSnapshot: null,
+    rolePriceSnapshot: null,
+    pricingRuleIdSnapshot: null,
+    referralCode: null,
+    discountCode: null,
+    discountAmountMinor: parseNullableInteger(row.discount_amount_minor),
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at)
+  };
+}
+
 function parseStatusHistoryRow(value: unknown): StatusHistoryRecord {
   if (typeof value !== "object" || value === null) {
     throw new Error("Invalid status_history payload from persistence layer.");
@@ -184,7 +251,7 @@ export class SupabaseOrderRepository implements OrderRepository {
     const scopedPath = this.options.tablePrefix === undefined || this.options.tablePrefix === ""
       ? path
       : path.replace(
-          /\/rest\/v1\/(orders|status_history)\b/g,
+          /\/rest\/v1\/(orders|status_history|guest_orders|guest_order_items)\b/g,
           (_match, tableName: string) => "/rest/v1/" + this.options.tablePrefix + tableName
         );
     const headers: Record<string, string> = {
@@ -278,7 +345,24 @@ export class SupabaseOrderRepository implements OrderRepository {
     }
 
     if (!Array.isArray(payload) || payload.length === 0) {
-      return null;
+      // Fall back to guest_orders
+      const guestResponse = await this.request(
+        "/rest/v1/guest_orders?order_number=eq." + encodeURIComponent(invoiceCode) + "&select=*,guest_order_items(*)&limit=1",
+        {
+          method: "GET"
+        }
+      );
+
+      const guestPayload = await readJson(guestResponse);
+      if (!guestResponse.ok) {
+        throw new Error(extractErrorMessage(guestPayload));
+      }
+
+      if (!Array.isArray(guestPayload) || guestPayload.length === 0) {
+        return null;
+      }
+
+      return parseGuestOrderRow(guestPayload[0]);
     }
 
     return parseOrderRow(payload[0]);

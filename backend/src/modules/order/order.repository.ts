@@ -251,7 +251,7 @@ export class SupabaseOrderRepository implements OrderRepository {
     const scopedPath = this.options.tablePrefix === undefined || this.options.tablePrefix === ""
       ? path
       : path.replace(
-          /\/rest\/v1\/(orders|status_history|guest_orders|guest_order_items)\b/g,
+          /\/rest\/v1\/(orders|status_history)\b/g,
           (_match, tableName: string) => "/rest/v1/" + this.options.tablePrefix + tableName
         );
     const headers: Record<string, string> = {

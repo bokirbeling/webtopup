@@ -1,4 +1,7 @@
 import express, { type Request } from "express";
+import helmet from "helmet";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
 
 import { InMemoryAuthRepository, SupabaseAuthRepository, type AuthRepository } from "./modules/auth/auth.repository";
 import { createAuthenticationMiddleware, requireRoles } from "./modules/auth/auth.middleware";
@@ -14,6 +17,8 @@ import { createDashboardService, type DashboardService } from "./modules/dashboa
 import { createAdminDigiflazzOperationsRouter } from "./modules/dashboard/digiflazz-operations.router";
 import { createDashboardContentRouter } from "./routes/dashboard.router";
 import { SupabaseDashboardContentRepository } from "./modules/dashboard/dashboard-content.repository";
+import voucherRouter from "./routes/voucher.router";
+import orderRouter from "./routes/order.router";
 import { createAdminAuditRouter, createProviderAuditRouter } from "./modules/audit/provider-audit.router";
 import { InMemoryProviderAuditRepository, SupabaseProviderAuditRepository } from "./modules/audit/provider-audit.repository";
 import { type ProviderAuditRepository } from "./modules/audit/provider-audit.types";
@@ -41,12 +46,17 @@ import { createPaymentService, type PaymentService } from "./modules/payment/pay
 import { createInvoiceStatusRouter } from "./modules/invoice-status/invoice-status.router";
 import { createInvoiceStatusService, type InvoiceStatusService } from "./modules/invoice-status/invoice-status.service";
 import { InMemoryCatalogRepository, SupabaseCatalogRepository, type CatalogRepository } from "./modules/catalog/catalog.repository";
+import { MySqlCatalogRepository } from "./modules/catalog/mysql-catalog.repository";
+import mysql from "mysql2/promise";
 import { createCatalogAdminRouter, createCatalogRouter } from "./modules/catalog/catalog.router";
 import { createDigiflazzPriceListSyncService, type DigiflazzPriceListSyncService } from "./modules/catalog/digiflazz-price-sync.service";
 import { createCatalogService, type CatalogService } from "./modules/catalog/pricing.service";
+import { ProductCacheService } from "./modules/catalog/product-cache.service";
 import { InMemoryPostpaidRepository, SupabasePostpaidRepository, type PostpaidRepository } from "./modules/postpaid/postpaid.repository";
 import { createPostpaidRouter } from "./modules/postpaid/postpaid.router";
 import { createPostpaidService, type PostpaidService } from "./modules/postpaid/postpaid.service";
+import { type AuditLogger } from "./security/audit";
+import { createRateLimitMiddleware } from "./security/rate-limit";
 
 export type MidtransConfig = Readonly<{
   clientKey: string;
@@ -89,6 +99,8 @@ export type AppDependencies = Readonly<{
   providerAuditRepository?: ProviderAuditRepository;
   commissionRepository?: CommissionRepository;
   commissionService?: CommissionService;
+  auditLogger?: AuditLogger;
+  rateLimit?: Readonly<{ windowMs: number; maxRequests: number }>;
   supabaseConfig?: Readonly<{ url: string; serviceRoleKey: string; tablePrefix?: string }>;
   authConfig?: Readonly<{ jwtSecret: string; jwtExpiresIn: string; passwordHashCost: number }>;
   midtransConfig?: MidtransConfig;
@@ -98,6 +110,40 @@ export type AppDependencies = Readonly<{
 
 export function createApp(dependencies: AppDependencies) {
   const app = express();
+
+  // Trust proxy for reverse proxy rate-limiting
+  app.set("trust proxy", true);
+
+  // Helmet security headers
+  app.use(helmet());
+
+  // CORS config
+  app.use(cors({
+    origin: process.env.ALLOWED_ORIGINS?.split(",") || ["http://localhost:5173", "https://demo.hanzserver.online"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+  }));
+
+  // Rate Limiting — disabled in test environment to prevent cross-test interference
+  if (process.env.NODE_ENV !== "test") {
+    const globalLimiter = rateLimit({
+      windowMs: 60 * 1000,
+      max: 30,
+      validate: { trustProxy: false },
+      message: { success: false, message: "Terlalu banyak request. Silakan coba lagi dalam 1 menit." }
+    });
+
+    app.use("/api/", globalLimiter);
+
+    const catalogLimiter = rateLimit({
+      windowMs: 60 * 1000,
+      max: 120,
+      validate: { trustProxy: false },
+      message: { success: false, message: "Terlalu banyak pencarian produk. Silakan coba lagi dalam 1 menit." }
+    });
+    app.use("/api/catalog/", catalogLimiter);
+  }
+
   const tablePrefix = dependencies.supabaseConfig?.tablePrefix ?? "";
 
   // 1. Audit & Ledger
@@ -138,7 +184,8 @@ export function createApp(dependencies: AppDependencies) {
     jwtSecret: dependencies.authConfig?.jwtSecret ?? "test-only-jwt-secret-at-least-32-bytes",
     jwtExpiresIn: dependencies.authConfig?.jwtExpiresIn ?? "1h",
     passwordHashCost: dependencies.authConfig?.passwordHashCost ?? 4,
-    emailVerificationSender: dependencies.emailVerificationSender
+    emailVerificationSender: dependencies.emailVerificationSender,
+    clock: dependencies.authService ? undefined : (global as any).authClock
   });
 
   // 4. Account & Admin
@@ -146,14 +193,28 @@ export function createApp(dependencies: AppDependencies) {
   const adminService = dependencies.adminService ?? createAdminService({ repository: authRepository });
 
   // 5. Catalog & Products
+  const supabaseFallbackRepository = dependencies.supabaseConfig
+    ? new SupabaseCatalogRepository({
+        supabaseUrl: dependencies.supabaseConfig.url,
+        supabaseServiceRoleKey: dependencies.supabaseConfig.serviceRoleKey,
+        tablePrefix
+      })
+    : new InMemoryCatalogRepository();
+
   const catalogRepository = dependencies.catalogRepository ?? (
-    dependencies.supabaseConfig
-      ? new SupabaseCatalogRepository({
-          supabaseUrl: dependencies.supabaseConfig.url,
-          supabaseServiceRoleKey: dependencies.supabaseConfig.serviceRoleKey,
-          tablePrefix
+    process.env.MYSQL_HOST
+      ? new MySqlCatalogRepository({
+          pool: mysql.createPool({
+            host: process.env.MYSQL_HOST,
+            user: process.env.MYSQL_USER,
+            password: process.env.MYSQL_PASSWORD,
+            database: process.env.MYSQL_DATABASE,
+            waitForConnections: true,
+            connectionLimit: 10
+          }),
+          supabaseFallback: supabaseFallbackRepository
         })
-      : new InMemoryCatalogRepository()
+      : supabaseFallbackRepository
   );
   const productUploadService = createProductUploadService(catalogRepository);
 
@@ -183,6 +244,9 @@ export function createApp(dependencies: AppDependencies) {
     priceListSyncService
   });
 
+  // Product Cache Service
+  const productCache = new ProductCacheService(catalogService);
+
   // 6. Orders
   const orderRepository = dependencies.orderRepository ?? (
     dependencies.supabaseConfig
@@ -197,27 +261,6 @@ export function createApp(dependencies: AppDependencies) {
     repository: orderRepository,
     catalogService,
     commissionService
-  });
-
-  // 7. Payments
-  const paymentRepository = dependencies.paymentRepository ?? (
-    dependencies.supabaseConfig
-      ? new SupabasePaymentRepository({
-          supabaseUrl: dependencies.supabaseConfig.url,
-          supabaseServiceRoleKey: dependencies.supabaseConfig.serviceRoleKey,
-          tablePrefix
-        })
-      : new InMemoryPaymentRepository(orderRepository)
-  );
-  const paymentService = dependencies.paymentService ?? createPaymentService({
-    paymentRepository,
-    orderService,
-    commissionService,
-    midtransConfig: dependencies.midtransConfig ?? { 
-      clientKey: "", serverKey: "", apiBaseUrl: "", merchantId: "" 
-    },
-    providerAuditRepository,
-    fetchImpl: dependencies.fetchImpl
   });
 
   // 8. Fulfillments
@@ -236,6 +279,28 @@ export function createApp(dependencies: AppDependencies) {
     commissionService,
     digiflazzConfig: dependencies.digiflazzConfig ?? { 
       username: null, apiKey: null, apiBaseUrl: "", webhookSecret: null, nodeEnv: "development" 
+    },
+    providerAuditRepository,
+    fetchImpl: dependencies.fetchImpl
+  });
+
+  // 7. Payments
+  const paymentRepository = dependencies.paymentRepository ?? (
+    dependencies.supabaseConfig
+      ? new SupabasePaymentRepository({
+          supabaseUrl: dependencies.supabaseConfig.url,
+          supabaseServiceRoleKey: dependencies.supabaseConfig.serviceRoleKey,
+          tablePrefix
+        })
+      : new InMemoryPaymentRepository(orderRepository)
+  );
+  const paymentService = dependencies.paymentService ?? createPaymentService({
+    paymentRepository,
+    orderService,
+    commissionService,
+    fulfillmentService,
+    midtransConfig: dependencies.midtransConfig ?? { 
+      clientKey: "", serverKey: "", apiBaseUrl: "", merchantId: "" 
     },
     providerAuditRepository,
     fetchImpl: dependencies.fetchImpl
@@ -276,6 +341,12 @@ export function createApp(dependencies: AppDependencies) {
   const authenticationMiddleware = createAuthenticationMiddleware(authService);
   const adminOnlyMiddleware = requireRoles(["admin"]);
 
+  const sensitiveEndpointRateLimit = createRateLimitMiddleware({
+    windowMs: dependencies.rateLimit?.windowMs ?? 60_000,
+    maxRequests: dependencies.rateLimit?.maxRequests ?? 60,
+    auditLogger: dependencies.auditLogger
+  });
+
   app.use(express.json({
     verify: (req, _res, buf) => {
       (req as any).rawBody = buf;
@@ -288,12 +359,11 @@ export function createApp(dependencies: AppDependencies) {
     const fullPath = (p: string) => path + p;
 
     app.use(fullPath("/api/auth"), createAuthRouter({ authService }));
-    app.use(fullPath("/api/account"), authenticationMiddleware, createAccountRouter({ accountService }));
     app.use(fullPath("/api/account/transactions"), authenticationMiddleware, createMemberTransactionsRouter({ dashboardService }));
     app.use(fullPath("/api/account/audit"), authenticationMiddleware, createProviderAuditRouter({ repository: providerAuditRepository }));
     app.use(fullPath("/api/account/commission"), authenticationMiddleware, createCommissionRouter({ commissionService, repository: commissionRepository }));
+    app.use(fullPath("/api/account"), authenticationMiddleware, createAccountRouter({ accountService }));
     
-    app.use(fullPath("/api/admin"), authenticationMiddleware, adminOnlyMiddleware, createAdminRouter({ adminService, productUploadService }));
     app.use(fullPath("/api/admin/monitoring"), authenticationMiddleware, adminOnlyMiddleware, createAdminMonitoringRouter({ dashboardService }));
     app.use(fullPath("/api/admin/catalog"), authenticationMiddleware, adminOnlyMiddleware, createCatalogAdminRouter({ catalogService }));
     app.use(fullPath("/api/admin/audit"), authenticationMiddleware, adminOnlyMiddleware, createAdminAuditRouter({ repository: providerAuditRepository }));
@@ -310,26 +380,39 @@ export function createApp(dependencies: AppDependencies) {
       }, 
       fetchImpl: dependencies.fetchImpl 
     }));
+    app.use(fullPath("/api/admin"), authenticationMiddleware, adminOnlyMiddleware, createAdminRouter({ adminService, productUploadService }));
 
-    app.use(fullPath("/api/catalog"), createCatalogRouter({ catalogService, authService }));
+    app.use(fullPath("/api/catalog"), createCatalogRouter({ catalogService, authService }, productCache));
     if (dashboardContentRepository) {
       app.use(fullPath("/api/dashboard"), createDashboardContentRouter({ 
         repository: dashboardContentRepository, 
         authService 
       }));
     }
-    app.use(fullPath("/api/orders"), createOrdersRouter({ orderService, authService }));
-    app.use(fullPath("/api/payments"), createPaymentRouter({ 
-      paymentService
+    app.use(fullPath("/api/orders"), createOrdersRouter({ orderService, authService, orderRepository }));
+    app.use(fullPath("/api/payments"), sensitiveEndpointRateLimit, createPaymentRouter({ 
+      paymentService,
+      auditLogger: dependencies.auditLogger
     }));
-    app.use(fullPath("/api/fulfillments"), createFulfillmentRouter({ 
+    app.use(fullPath("/api/fulfillments"), sensitiveEndpointRateLimit, createFulfillmentRouter({ 
       fulfillmentService,
-      digiflazzWebhookSecret: dependencies.digiflazzConfig?.webhookSecret ?? null
+      digiflazzWebhookSecret: dependencies.digiflazzConfig?.webhookSecret ?? null,
+      auditLogger: dependencies.auditLogger
+    }));
+    app.use(fullPath("/api/webhook"), sensitiveEndpointRateLimit, createFulfillmentRouter({ 
+      fulfillmentService,
+      digiflazzWebhookSecret: dependencies.digiflazzConfig?.webhookSecret ?? null,
+      auditLogger: dependencies.auditLogger
     }));
     app.use(fullPath("/api/digiflazz"), authenticationMiddleware, createPostpaidRouter({ postpaidService }));
     app.use(fullPath("/api/invoices"), createInvoiceStatusRouter({ invoiceStatusService }));
+    app.use(fullPath("/api/vouchers"), voucherRouter);
+    app.use(fullPath("/api/orders"), orderRouter);
 
     app.get(fullPath("/health"), (_req, res) => {
+      res.json({ status: "ok" });
+    });
+    app.get(fullPath("/api/health"), (_req, res) => {
       res.json({ status: "ok" });
     });
   }

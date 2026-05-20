@@ -7,83 +7,22 @@ import {
 } from "./payment.service";
 import { type MidtransWebhookPayload } from "./payment.types";
 import { type AuditLogger, noopAuditLogger } from "../../security/audit";
+import { initializePaymentSchema, midtransWebhookSchema, zodValidate } from "../../shared/validation";
 
 type PaymentRouterDependencies = Readonly<{
   paymentService: PaymentService;
   auditLogger?: AuditLogger;
 }>;
 
-type InitializePaymentValidationResult =
-  | Readonly<{
-      ok: true;
-      orderId: string;
-      idempotencyKey: string;
-    }>
-  | Readonly<{
-      ok: false;
-      issues: string[];
-    }>;
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function validateInitializePayload(payload: unknown): InitializePaymentValidationResult {
-  if (!isPlainObject(payload)) {
-    return {
-      ok: false,
-      issues: ["Request body must be a JSON object."]
-    };
-  }
-
-  const issues: string[] = [];
-  const orderIdRaw = payload.order_id;
-  const idempotencyKeyRaw = payload.idempotency_key;
-
-  if (typeof orderIdRaw !== "string" || orderIdRaw.trim() === "") {
-    issues.push("order_id is required and must be a non-empty string.");
-  }
-
-  if (typeof idempotencyKeyRaw !== "string" || idempotencyKeyRaw.trim() === "") {
-    issues.push("idempotency_key is required and must be a non-empty string.");
-  }
-
-  if (issues.length > 0) {
-    return {
-      ok: false,
-      issues
-    };
-  }
-
-  return {
-    ok: true,
-    orderId: (orderIdRaw as string).trim(),
-    idempotencyKey: (idempotencyKeyRaw as string).trim()
-  };
-}
-
 export function createPaymentRouter(dependencies: PaymentRouterDependencies) {
   const paymentRouter = Router();
   const auditLogger = dependencies.auditLogger ?? noopAuditLogger;
 
-  paymentRouter.post("/midtrans/initialize", async (request, response) => {
-    const validation = validateInitializePayload(request.body);
-    if (!validation.ok) {
-      response.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Invalid payment initialization payload.",
-          details: validation.issues
-        }
-      });
-
-      return;
-    }
-
+  paymentRouter.post("/midtrans/initialize", zodValidate(initializePaymentSchema), async (request, response) => {
     try {
       const result = await dependencies.paymentService.initializeMidtransPayment({
-        orderId: validation.orderId,
-        idempotencyKey: validation.idempotencyKey
+        orderId: request.body.order_id,
+        idempotencyKey: request.body.idempotency_key
       });
 
       response.status(201).json({
@@ -105,6 +44,7 @@ export function createPaymentRouter(dependencies: PaymentRouterDependencies) {
         return;
       }
 
+      console.error("[PaymentInit] Error initializing payment:", error);
       response.status(500).json({
         error: {
           code: "PAYMENT_INITIALIZATION_FAILED",
@@ -114,7 +54,7 @@ export function createPaymentRouter(dependencies: PaymentRouterDependencies) {
     }
   });
 
-  paymentRouter.post("/midtrans/webhook", async (request, response) => {
+  paymentRouter.post("/midtrans/webhook", zodValidate(midtransWebhookSchema), async (request, response) => {
     try {
       const result = await dependencies.paymentService.handleMidtransWebhook(request.body as MidtransWebhookPayload);
 
@@ -157,6 +97,7 @@ export function createPaymentRouter(dependencies: PaymentRouterDependencies) {
         return;
       }
 
+      console.error("[Webhook] Error processing webhook:", error);
       response.status(500).json({
         error: {
           code: "WEBHOOK_PROCESSING_FAILED",

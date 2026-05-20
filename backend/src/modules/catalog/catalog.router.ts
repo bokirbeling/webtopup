@@ -14,6 +14,17 @@ import {
   type UpdateProductRequest
 } from "./pricing.service";
 import { type PricedProduct, type PricingRuleRecord, type PricingScopeType, type ProductRecord } from "./catalog.types";
+import { ProductCacheService } from "./product-cache.service";
+import {
+  catalogQuerySchema,
+  createProductSchema,
+  updateProductSchema,
+  createPricingRuleSchema,
+  updatePricingRuleSchema,
+  trustedPriceBodySchema,
+  deleteProductParamsSchema,
+  zodValidate
+} from "../../shared/validation";
 
 export type CatalogRouterDependencies = Readonly<{
   catalogService: CatalogService;
@@ -88,13 +99,10 @@ async function resolveCatalogRole(request: Request, authService: AuthService): P
   }
 
   try {
-    return (await authService.getCurrentUser(token)).role;
+    const user = await authService.getCurrentUser(token);
+    return user.role;
   } catch (error) {
-    if (error instanceof InvalidAuthTokenError) {
-      throw error;
-    }
-
-    throw error;
+    return "pengguna";
   }
 }
 
@@ -146,6 +154,10 @@ function pricedProductResponse(pricedProduct: PricedProduct) {
       markup_percentage: pricedProduct.pricing.markupPercentage
     }
   };
+}
+
+function flatProductResponse(pricedProduct: PricedProduct) {
+  return pricedProductResponse(pricedProduct);
 }
 
 function priceListSyncResponse(result: DigiflazzPriceListSyncResult) {
@@ -362,15 +374,28 @@ function validateUpdatePricingRulePayload(payload: unknown): { ok: true; data: U
   return issues.length > 0 ? { ok: false, issues } : { ok: true, data };
 }
 
-export function createCatalogRouter(dependencies: CatalogRouterDependencies) {
+export function createCatalogRouter(dependencies: CatalogRouterDependencies, productCache: ProductCacheService) {
   const catalogRouter = Router();
 
-  catalogRouter.get("/products", async (request, response, next) => {
+  catalogRouter.get("/products", zodValidate(catalogQuerySchema, "query"), async (request, response, next) => {
     try {
       const roleType = await resolveCatalogRole(request, dependencies.authService);
-      const products = await dependencies.catalogService.listPricedProducts(roleType);
-      response.status(200).json({ products: products.map(pricedProductResponse) });
-    } catch (error) {
+      
+      const { page, limit, search, category } = request.query as unknown as {
+        page?: number;
+        limit?: number;
+        search?: string;
+        category?: string;
+      };
+
+      // Get paginated products from cache
+      const result = await productCache.getPaginatedProducts(roleType, page || 1, limit || 50, search, category);
+      
+      response.status(200).json({
+        products: result.products.map(flatProductResponse),
+        pagination: result.pagination
+      });
+    } catch (error: any) {
       if (error instanceof InvalidAuthTokenError) {
         sendUnauthorized(response);
         return;
@@ -380,16 +405,10 @@ export function createCatalogRouter(dependencies: CatalogRouterDependencies) {
     }
   });
 
-  catalogRouter.post("/products/:productId/prepare-order", async (request, response, next) => {
-    const issues = validateTrustedPricePayload(request.body);
-    if (issues.length > 0) {
-      sendValidationError(response, "Invalid prepare-order payload.", issues);
-      return;
-    }
-
+  catalogRouter.post("/products/:productId/prepare-order", zodValidate(trustedPriceBodySchema, "body", "Invalid prepare-order payload."), async (request, response, next) => {
     try {
       const roleType = await resolveCatalogRole(request, dependencies.authService);
-      const pricedProduct = await dependencies.catalogService.quoteProduct(request.params.productId, roleType);
+      const pricedProduct = await dependencies.catalogService.quoteProduct(request.params.productId as string, roleType);
       response.status(200).json({ quote: pricedProductResponse(pricedProduct) });
     } catch (error) {
       if (error instanceof InvalidAuthTokenError) {
@@ -438,35 +457,42 @@ export function createCatalogAdminRouter(dependencies: CatalogAdminRouterDepende
     response.status(200).json({ products: products.map(productResponse) });
   });
 
-  adminRouter.post("/products", async (request, response) => {
-    const validation = validateCreateProductPayload(request.body);
-    if (!validation.ok) {
-      sendValidationError(response, "Invalid product payload.", validation.issues);
-      return;
-    }
-
-    const product = await dependencies.catalogService.createProduct(validation.data);
+  adminRouter.post("/products", zodValidate(createProductSchema), async (request, response) => {
+    const body = request.body;
+    const product = await dependencies.catalogService.createProduct({
+      skuDigiflazz: body.sku_digiflazz,
+      name: body.name,
+      category: body.category,
+      provider: body.provider,
+      basePriceMinor: body.base_price_minor,
+      isActive: body.is_active,
+      metadata: body.metadata
+    });
     response.status(201).json({ product: productResponse(product) });
   });
 
-  adminRouter.patch("/products/:productId", async (request, response, next) => {
-    const validation = validateUpdateProductPayload(request.body);
-    if (!validation.ok) {
-      sendValidationError(response, "Invalid product payload.", validation.issues);
-      return;
-    }
+  adminRouter.patch("/products/:productId", zodValidate(updateProductSchema), async (request, response, next) => {
+    const body = request.body;
+    const data: Mutable<UpdateProductRequest> = {};
+    if (body.sku_digiflazz !== undefined) data.skuDigiflazz = body.sku_digiflazz;
+    if (body.name !== undefined) data.name = body.name;
+    if (body.category !== undefined) data.category = body.category;
+    if (body.provider !== undefined) data.provider = body.provider;
+    if (body.base_price_minor !== undefined) data.basePriceMinor = body.base_price_minor;
+    if (body.is_active !== undefined) data.isActive = body.is_active;
+    if (body.metadata !== undefined) data.metadata = body.metadata;
 
     try {
-      const product = await dependencies.catalogService.updateProduct(request.params.productId, validation.data);
+      const product = await dependencies.catalogService.updateProduct(request.params.productId as string, data);
       response.status(200).json({ product: productResponse(product) });
     } catch (error) {
       next(error);
     }
   });
 
-  adminRouter.delete("/products/:productId", async (request, response, next) => {
+  adminRouter.delete("/products/:productId", zodValidate(deleteProductParamsSchema, "params"), async (request, response, next) => {
     try {
-      await dependencies.catalogService.deleteProduct(request.params.productId);
+      await dependencies.catalogService.deleteProduct(request.params.productId as string);
       response.status(204).send();
     } catch (error) {
       next(error);
@@ -478,42 +504,46 @@ export function createCatalogAdminRouter(dependencies: CatalogAdminRouterDepende
     response.status(200).json({ pricing_rules: pricingRules.map(pricingRuleResponse) });
   });
 
-  adminRouter.post("/pricing-rules", async (request, response) => {
-    const validation = validateCreatePricingRulePayload(request.body);
-    if (!validation.ok) {
-      sendValidationError(response, "Invalid pricing rule payload.", validation.issues);
-      return;
-    }
-
-    const pricingRule = await dependencies.catalogService.createPricingRule(validation.data);
+  adminRouter.post("/pricing-rules", zodValidate(createPricingRuleSchema, "body", "Invalid pricing rule payload."), async (request, response) => {
+    const pricingRule = await dependencies.catalogService.createPricingRule({
+      scopeType: request.body.scope_type,
+      productId: request.body.product_id ?? null,
+      category: request.body.category ?? null,
+      roleType: request.body.role_type,
+      markupFixed: request.body.markup_fixed,
+      markupPercentage: request.body.markup_percentage,
+      priority: request.body.priority,
+      isActive: request.body.is_active,
+      metadata: request.body.metadata
+    });
     response.status(201).json({ pricing_rule: pricingRuleResponse(pricingRule) });
   });
 
-  adminRouter.patch("/pricing-rules/:ruleId", async (request, response, next) => {
-    const validation = validateUpdatePricingRulePayload(request.body);
-    if (!validation.ok) {
-      sendValidationError(response, "Invalid pricing rule payload.", validation.issues);
-      return;
-    }
+  adminRouter.patch("/pricing-rules/:ruleId", zodValidate(updatePricingRuleSchema, "body", "Invalid pricing rule payload."), async (request, response, next) => {
+    const body = request.body;
+    const data: Mutable<UpdatePricingRuleRequest> = {};
+    if (body.scope_type !== undefined) data.scopeType = body.scope_type;
+    if (body.product_id !== undefined) data.productId = body.product_id;
+    if (body.category !== undefined) data.category = body.category;
+    if (body.role_type !== undefined) data.roleType = body.role_type;
+    if (body.markup_fixed !== undefined) data.markupFixed = body.markup_fixed;
+    if (body.markup_percentage !== undefined) data.markupPercentage = body.markup_percentage;
+    if (body.priority !== undefined) data.priority = body.priority;
+    if (body.is_active !== undefined) data.isActive = body.is_active;
+    if (body.metadata !== undefined) data.metadata = body.metadata;
 
     try {
-      const pricingRule = await dependencies.catalogService.updatePricingRule(request.params.ruleId, validation.data);
+      const pricingRule = await dependencies.catalogService.updatePricingRule(request.params.ruleId as string, data);
       response.status(200).json({ pricing_rule: pricingRuleResponse(pricingRule) });
     } catch (error) {
       next(error);
     }
   });
 
-  adminRouter.post("/products/:productId/prepare-order", async (request, response) => {
-    const issues = validateTrustedPricePayload(request.body);
-    if (issues.length > 0) {
-      sendValidationError(response, "Invalid prepare-order payload.", issues);
-      return;
-    }
-
+  adminRouter.post("/products/:productId/prepare-order", zodValidate(trustedPriceBodySchema, "body", "Invalid prepare-order payload."), async (request, response) => {
     const roleType = (request as unknown as AuthenticatedRequest).authUser.role;
     try {
-      const pricedProduct = await dependencies.catalogService.quoteProduct(request.params.productId, roleType);
+      const pricedProduct = await dependencies.catalogService.quoteProduct(request.params.productId as string, roleType);
       response.status(200).json({ quote: pricedProductResponse(pricedProduct) });
     } catch (error) {
       handleCatalogError(error, response);

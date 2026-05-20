@@ -93,6 +93,9 @@ function requireString(value: unknown): string | null {
 }
 
 function isLiveDigiflazzConfigured(config: DigiflazzConfig): boolean {
+  if (config.apiKey && config.apiKey.startsWith("dev-")) {
+    return false;
+  }
   return missingDigiflazzBuyerCredentialFields(config).length === 0;
 }
 
@@ -390,7 +393,7 @@ export function createFulfillmentService(options: FulfillmentServiceOptions): Fu
       );
 
       // S5: Mark commission payable if order is success
-      if (status === "success" && options.commissionService) {
+      if (updated.status === "success" && options.commissionService) {
         await options.commissionService.markCommissionPayable(updated.orderId);
       }
 
@@ -419,6 +422,17 @@ export function createFulfillmentService(options: FulfillmentServiceOptions): Fu
         return { code: "DUPLICATE" as const, message: "Duplicate Digiflazz callback ignored." };
       }
       if (!fulfillment) {
+        const order = await options.orderService.findOrderById(refId).catch(() => null);
+        if (order && order.status !== "paid" && order.status !== "success" && order.status !== "failed" && order.status !== "fulfillment_pending") {
+          await options.fulfillmentRepository.updateWebhookEventState({
+            eventId: registration.event.id,
+            processingState: "ignored",
+            processedAt: now,
+            errorMessage: "Fulfillment for ref_id " + refId + " was not found, but order is unpaid. Callback ignored by guard."
+          });
+          return { code: "IGNORED" as const, message: "Callback ignored because order is unpaid and no fulfillment was initiated." };
+        }
+
         await options.fulfillmentRepository.updateWebhookEventState({ eventId: registration.event.id, processingState: "failed", processedAt: now, errorMessage: "Fulfillment for ref_id " + refId + " was not found." });
         throw new FulfillmentValidationError("Fulfillment for ref_id " + refId + " was not found.");
       }

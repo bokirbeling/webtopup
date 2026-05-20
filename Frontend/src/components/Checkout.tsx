@@ -9,6 +9,7 @@ interface Product {
   base_price_minor: number;
   reseller_price_minor?: number;
   image_url?: string;
+  sku_digiflazz?: string;
 }
 
 interface VoucherValidation {

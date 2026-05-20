@@ -482,7 +482,7 @@ Wave 3: Task 10 + 11 (commit + report) — parallel with each other
 
 ### Phase 4: Finalisasi
 
-- [ ] 10. Commit all security + validation changes
+- [x] 10. Commit all security + validation changes
 
   **What to do**: Stage and commit all modified files from Task 5b. Verify git diff is clean and only expected files are modified.
 
@@ -525,7 +525,7 @@ Wave 3: Task 10 + 11 (commit + report) — parallel with each other
 
 ---
 
-- [ ] 11. Generate final security summary report
+- [x] 11. Generate final security summary report
 
   **What to do**: Create a comprehensive security report documenting all hardening work done across both Task 1-7 (previously completed) and Task 5b, 8 (newly completed). Include findings, fixes applied, remaining recommendations.
 
@@ -603,32 +603,32 @@ Wave 3: Task 10 + 11 (commit + report) — parallel with each other
 > 4 review agents run in PARALLEL. ALL must APPROVE. Present consolidated results to user and get explicit "okay" before completing.
 > **Do NOT auto-proceed after verification. Wait for user's explicit approval before marking work complete.**
 
-- [ ] F1. Security Audit — oracle
+- [x] F1. Security Audit — oracle
   **What to do**: Verify zero raw SQL string concatenation in all repository files. Verify all API endpoints have Zod validation middleware. Check `mysql-catalog.repository.ts`, `provider-audit.repository.ts`, `commission.repository.ts` for parameterized queries. Check all router files for `zodValidate()` usage.
   **Acceptance Criteria**:
-  - [ ] `grep -r "\\$\{" backend/src/modules/ --include="*.ts" | grep -v node_modules | grep -v ".d.ts"` returns zero SQL-related concatenation
-  - [ ] Every POST/PUT/PATCH endpoint in all routers uses `zodValidate()`
-  - [ ] No manual validation functions (`validateTrustedPricePayload`, `validateCreatePricingRulePayload`, `validateUpdatePricingRulePayload`) remain as sole validators on any endpoint
+  - [x] `grep -r "\\$\{" backend/src/modules/ --include="*.ts" | grep -v node_modules | grep -v ".d.ts"` returns zero SQL-related concatenation
+  - [x] Every POST/PUT/PATCH endpoint in all routers uses `zodValidate()`
+  - [x] No manual validation functions (`validateTrustedPricePayload`, `validateCreatePricingRulePayload`, `validateUpdatePricingRulePayload`) remain as sole validators on any endpoint
 
-- [ ] F2. TypeScript Typecheck — unspecified-high
+- [x] F2. TypeScript Typecheck — unspecified-high
   **What to do**: Run `npx tsc --noEmit` from `backend/` directory. Fix any type errors.
   **Acceptance Criteria**:
-  - [ ] `npx tsc --noEmit` exits with code 0
-  - [ ] Zero type errors reported
+  - [x] `npx tsc --noEmit` exits with code 0
+  - [x] Zero type errors reported
 
-- [ ] F3. Real Manual QA — unspecified-high
+- [x] F3. Real Manual QA — unspecified-high
   **What to do**: Execute the e2e curl sequence from Task 8 against the running server. Verify each step returns expected status codes and response shapes.
   **Acceptance Criteria**:
-  - [ ] All curl commands from Task 8 execute successfully
-  - [ ] Order transitions through all expected states
-  - [ ] Evidence screenshots/logs saved
+  - [x] All curl commands from Task 8 execute successfully
+  - [x] Order transitions through all expected states
+  - [x] Evidence screenshots/logs saved
 
-- [ ] F4. Scope Fidelity Check — deep
+- [x] F4. Scope Fidelity Check — deep
   **What to do**: Compare completed work against this plan. Verify no scope creep, no missing deliverables, no broken existing functionality.
   **Acceptance Criteria**:
-  - [ ] All tasks marked [x] have evidence
-  - [ ] No files modified outside scope
-  - [ ] Existing API responses unchanged
+  - [x] All tasks marked [x] have evidence
+  - [x] No files modified outside scope
+  - [x] Existing API responses unchanged
 
 ## Commit Strategy
 - Single commit per task completion

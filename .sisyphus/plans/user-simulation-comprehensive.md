@@ -125,7 +125,7 @@ T13 → T14
 
 ## TODOs
 
-- [ ] 1. Create test data fixtures
+- [x] 1. Create test data fixtures
 
   **What to do**:
   - Create JSON fixtures for test users (guest, reseller, admin)
@@ -150,10 +150,10 @@ T13 → T14
   - Example: `backend/src/modules/*/*.types.ts` - Type definitions
 
   **Acceptance Criteria**:
-  - [ ] `test-fixtures/users.json` created with 3 users (guest, reseller, admin)
-  - [ ] `test-fixtures/products.json` created with 5 dev products
-  - [ ] `test-fixtures/orders.json` created with sample orders
-  - [ ] All fixtures use valid data matching database schema
+  - [x] `test-fixtures/users.json` created with 3 users (guest, reseller, admin)
+  - [x] `test-fixtures/products.json` created with 5 dev products
+  - [x] `test-fixtures/orders.json` created with sample orders
+  - [x] All fixtures use valid data matching database schema
 
   **QA Scenarios**:
   ```
@@ -172,7 +172,7 @@ T13 → T14
 
   **Commit**: NO
 
-- [ ] 2. Setup Playwright test environment
+- [x] 2. Setup Playwright test environment
 
   **What to do**:
   - Create `test-simulations/` directory
@@ -197,10 +197,10 @@ T13 → T14
   - Config: `next-frontend/playwright.config.ts` - Existing config
 
   **Acceptance Criteria**:
-  - [ ] `test-simulations/` directory created
-  - [ ] `test-simulations/config.ts` with demo base URL
-  - [ ] `test-simulations/utils.ts` with helper functions
-  - [ ] Screenshot directory configured
+  - [x] `test-simulations/` directory created
+  - [x] `test-simulations/config.ts` with demo base URL
+  - [x] `test-simulations/utils.ts` with helper functions
+  - [x] Screenshot directory configured
 
   **QA Scenarios**:
   ```
@@ -219,7 +219,7 @@ T13 → T14
 
   **Commit**: NO
 
-- [ ] 3. Create API test utilities
+- [x] 3. Create API test utilities
 
   **What to do**:
   - Create `test-simulations/api-utils.ts` with fetch helpers
@@ -244,10 +244,10 @@ T13 → T14
   - Types: `backend/src/modules/*/*.types.ts` - Request/response types
 
   **Acceptance Criteria**:
-  - [ ] `test-simulations/api-utils.ts` created
-  - [ ] Functions for auth, orders, payments, products
-  - [ ] Response validation helpers included
-  - [ ] Error handling for all API calls
+  - [x] `test-simulations/api-utils.ts` created
+  - [x] Functions for auth, orders, payments, products
+  - [x] Response validation helpers included
+  - [x] Error handling for all API calls
 
   **QA Scenarios**:
   ```
@@ -266,7 +266,7 @@ T13 → T14
 
   **Commit**: NO
 
-- [ ] 4. Guest checkout simulation
+- [x] 4. Guest checkout simulation
 
   **What to do**:
   - Create `test-simulations/guest-checkout.spec.ts`
@@ -292,11 +292,11 @@ T13 → T14
   - Flow: `docs/payment-integrity/midtrans-response-flow.md` - Payment flow
 
   **Acceptance Criteria**:
-  - [ ] Test script created and runs successfully
-  - [ ] Order created in demo_orders table
-  - [ ] Payment initialized in demo_payments table
-  - [ ] Invoice code returned and valid
-  - [ ] Screenshots captured for each step
+  - [x] Test script created and runs successfully
+  - [x] Order created in demo_orders table
+  - [x] Payment initialized in demo_payments table
+  - [x] Invoice code returned and valid
+  - [x] Screenshots captured for each step
 
   **QA Scenarios**:
   ```
@@ -321,7 +321,7 @@ T13 → T14
 
   **Commit**: NO
 
-- [ ] 5. Guest order tracking simulation
+- [x] 5. Guest order tracking simulation
 
   **What to do**:
   - Create `test-simulations/guest-tracking.spec.ts`
@@ -346,11 +346,11 @@ T13 → T14
   - API: `backend/src/modules/order/order.router.ts` - Order lookup
 
   **Acceptance Criteria**:
-  - [ ] Test script created and runs successfully
-  - [ ] Order details displayed correctly
-  - [ ] Status matches database
-  - [ ] Payment info shown
-  - [ ] Screenshots captured
+  - [x] Test script created and runs successfully
+  - [x] Order details displayed correctly
+  - [x] Status matches database
+  - [x] Payment info shown
+  - [x] Screenshots captured
 
   **QA Scenarios**:
   ```
@@ -372,7 +372,7 @@ T13 → T14
 
   **Commit**: NO
 
-- [ ] 6. Reseller registration simulation
+- [x] 6. Reseller registration simulation
 
   **What to do**:
   - Create `test-simulations/reseller-registration.spec.ts`
@@ -398,11 +398,11 @@ T13 → T14
   - Migration: `supabase/migrations/20260515110000_email_verification_fields.sql` - Email verification
 
   **Acceptance Criteria**:
-  - [ ] Test script created and runs successfully
-  - [ ] User created in demo users table
-  - [ ] Email verification token generated
-  - [ ] Login successful after verification
-  - [ ] Screenshots captured
+  - [x] Test script created and runs successfully
+  - [x] User created in demo users table
+  - [x] Email verification token generated
+  - [x] Login successful after verification
+  - [x] Screenshots captured
 
   **QA Scenarios**:
   ```
@@ -536,7 +536,7 @@ T13 → T14
 
   **Commit**: NO
 
-- [ ] 9. Admin management simulation
+- [x] 9. Admin management simulation
 
   **What to do**:
   - Create `test-simulations/admin-management.spec.ts`
@@ -562,11 +562,11 @@ T13 → T14
   - Migration: `supabase/migrations/20260514030000_accounts_catalog_pricing_order_snapshots.sql` - User roles
 
   **Acceptance Criteria**:
-  - [ ] Test script created and runs successfully
-  - [ ] Reseller approval workflow works
-  - [ ] Payout approval workflow works
-  - [ ] Reports display correctly
-  - [ ] Screenshots captured
+  - [x] Test script created and runs successfully
+  - [x] Reseller approval workflow works
+  - [x] Payout approval workflow works
+  - [x] Reports display correctly
+  - [x] Screenshots captured
 
   **QA Scenarios**:
   ```

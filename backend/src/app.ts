@@ -18,7 +18,6 @@ import { createAdminDigiflazzOperationsRouter } from "./modules/dashboard/digifl
 import { createDashboardContentRouter } from "./routes/dashboard.router";
 import { SupabaseDashboardContentRepository } from "./modules/dashboard/dashboard-content.repository";
 import voucherRouter from "./routes/voucher.router";
-import orderRouter from "./routes/order.router";
 import { createAdminAuditRouter, createProviderAuditRouter } from "./modules/audit/provider-audit.router";
 import { InMemoryProviderAuditRepository, SupabaseProviderAuditRepository } from "./modules/audit/provider-audit.repository";
 import { type ProviderAuditRepository } from "./modules/audit/provider-audit.types";
@@ -407,7 +406,6 @@ export function createApp(dependencies: AppDependencies) {
     app.use(fullPath("/api/digiflazz"), authenticationMiddleware, createPostpaidRouter({ postpaidService }));
     app.use(fullPath("/api/invoices"), createInvoiceStatusRouter({ invoiceStatusService }));
     app.use(fullPath("/api/vouchers"), voucherRouter);
-    app.use(fullPath("/api/orders"), orderRouter);
 
     app.get(fullPath("/health"), (_req, res) => {
       res.json({ status: "ok" });

@@ -53,15 +53,12 @@ function defaultIdGenerator() {
 }
 
 function createSequentialInvoiceCodeGenerator() {
-  let sequence = 0;
-
   return (createdAt: Date) => {
-    sequence += 1;
-
     const yyyymmdd = createdAt.toISOString().slice(0, 10).replaceAll("-", "");
-    const paddedSequence = String(sequence).padStart(6, "0");
+    const timestamp = createdAt.getTime().toString().slice(-8);
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
 
-    return `INV-${yyyymmdd}-${paddedSequence}`;
+    return `INV-${yyyymmdd}-${timestamp}${random}`;
   };
 }
 

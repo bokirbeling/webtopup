@@ -35,6 +35,11 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
       const data = await response.json();
       if (data.token) {
         setAuthToken(data.token);
+        localStorage.setItem('bayarku.auth.session', JSON.stringify({
+          user: data.user,
+          token: data.token,
+          expires_in: data.expiresIn || '24h'
+        }));
         setSuccess(true);
         setTimeout(() => {
           onNavigate('/dashboard');

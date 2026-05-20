@@ -350,6 +350,16 @@ export default function ProductCatalog({ initialCategory }: ProductCatalogProps 
             setShowCheckout(false);
             setSelectedProduct(null);
           }}
+          onCheckout={(data) => {
+            const invoiceCode = data?.order?.order_number || data?.order?.invoice_code;
+            if (invoiceCode) {
+              window.location.href = `/invoice/${encodeURIComponent(invoiceCode)}`;
+            } else {
+              setShowCheckout(false);
+              setSelectedProduct(null);
+              alert('Pemesanan berhasil!');
+            }
+          }}
         />
       )}
     </div>

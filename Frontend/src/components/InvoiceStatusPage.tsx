@@ -129,7 +129,7 @@ export default function InvoiceStatusPage({ invoiceCode }: InvoiceStatusPageProp
     }
 
     try {
-      const response = await fetch(buildApiUrl('/api/invoices/' + encodeURIComponent(invoiceCode) + '/status'));
+      const response = await fetch(buildApiUrl('/invoices/' + encodeURIComponent(invoiceCode) + '/status'));
 
       if (!response.ok) {
         throw new Error(await readApiError(response, 'Invoice tidak ditemukan'));

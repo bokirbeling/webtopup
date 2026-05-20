@@ -132,7 +132,7 @@ export default function ProductCatalog({ initialCategory }: ProductCatalogProps 
   };
 
   const getProductImage = (product: Product) => {
-    const provider = product.provider.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    const provider = (product.provider || 'unknown').toLowerCase().replace(/[^a-z0-9]/g, '-');
     return `/product-images/${provider}.png`;
   };
 

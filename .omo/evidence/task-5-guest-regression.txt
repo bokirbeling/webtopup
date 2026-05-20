@@ -1,0 +1,14 @@
+Task 5 guest regression evidence
+
+Command:
+npm test -- src/modules/order/order.router.test.ts src/modules/order/order.service.test.ts src/modules/catalog/catalog.router.test.ts src/modules/payment/payment.router.test.ts src/modules/fulfillment/fulfillment.router.test.ts src/modules/invoice-status/invoice-status.router.test.ts src/modules/regression/lifecycle.regression.test.ts
+Observed outcome:
+- Jest completed with 7 passed suites and 26 passed tests.
+
+Command:
+npx tsx C:\Users\ADMINI~1\AppData\Local\Temp\opencode\task5_guest_manual.ts
+Observed outcome:
+- Legacy guest POST /api/orders returned 201 with order_id=order-1, invoice_code=INV-1, status=pending_payment.
+- Stored legacy order kept amountMinor=20000, userId=null, and all snapshot fields null.
+- Guest product-priced POST /api/orders with product_id=product-guest and amount_minor=1 returned 201 with order_id=order-2, invoice_code=INV-2, status=pending_payment.
+- Stored product-priced guest order used server values: productCode=ml-diamond-86, provider=digiflazz, amountMinor=12000, basePriceSnapshot=10000, markupSnapshot=2000, rolePriceSnapshot=12000, pricingRuleIdSnapshot=pengguna-global.

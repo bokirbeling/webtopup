@@ -8,6 +8,7 @@ import {
 } from "./fulfillment.service";
 import { type DigiflazzCallbackPayload } from "./fulfillment.types";
 import { type AuditLogger, noopAuditLogger } from "../../security/audit";
+import { fulfillmentTriggerSchema, zodValidate } from "../../shared/validation";
 
 type RawBodyRequest = Request & Readonly<{ rawBody?: Buffer }>;
 
@@ -59,17 +60,8 @@ export function createFulfillmentRouter(dependencies: FulfillmentRouterDependenc
   const auditLogger = dependencies.auditLogger ?? noopAuditLogger;
   const webhookSecret = dependencies.digiflazzWebhookSecret?.trim() === "" ? null : dependencies.digiflazzWebhookSecret?.trim() ?? null;
 
-  fulfillmentRouter.post("/digiflazz/trigger", async (request, response) => {
-    const orderId = extractOrderId(request.body);
-    if (orderId === null) {
-      response.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "order_id is required and must be a non-empty string."
-        }
-      });
-      return;
-    }
+  fulfillmentRouter.post("/digiflazz/trigger", zodValidate(fulfillmentTriggerSchema), async (request, response) => {
+    const orderId = request.body.order_id as string;
 
     try {
       const result = await dependencies.fulfillmentService.triggerPaidOrderFulfillment({ orderId });
@@ -105,17 +97,8 @@ export function createFulfillmentRouter(dependencies: FulfillmentRouterDependenc
     }
   });
 
-  fulfillmentRouter.post("/digiflazz/recheck", async (request, response) => {
-    const orderId = extractOrderId(request.body);
-    if (orderId === null) {
-      response.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "order_id is required and must be a non-empty string."
-        }
-      });
-      return;
-    }
+  fulfillmentRouter.post("/digiflazz/recheck", zodValidate(fulfillmentTriggerSchema), async (request, response) => {
+    const orderId = request.body.order_id as string;
 
     try {
       const result = await dependencies.fulfillmentService.recheckPendingFulfillment({ orderId });
@@ -134,7 +117,7 @@ export function createFulfillmentRouter(dependencies: FulfillmentRouterDependenc
       response.status(500).json({
         error: {
           code: "FULFILLMENT_RECHECK_FAILED",
-          message: "Failed to recheck Digiflazz fulfillment."
+          message: error instanceof Error ? error.stack || error.message : "Failed to recheck Digiflazz fulfillment."
         }
       });
     }

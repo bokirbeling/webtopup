@@ -1,23 +1,70 @@
 import { useState, useEffect } from 'react';
-import { Search, Bell, ShoppingCart, ChevronDown, Menu, X, Zap, Phone, Gamepad2, CreditCard, Wifi } from 'lucide-react';
+import { Search, Bell, ShoppingCart, ChevronDown, Menu, X, Zap, Phone, Gamepad2, CreditCard, Wifi, Package, User, LogOut } from 'lucide-react';
+import { getAuthToken, clearAuthToken } from '../lib/auth';
+import { buildApiUrl } from '../lib/api';
 
 const navLinks = [
-  { label: 'Pulsa & Data', icon: Phone },
-  { label: 'Listrik & Air', icon: Zap },
-  { label: 'Game', icon: Gamepad2 },
-  { label: 'E-Wallet', icon: CreditCard },
-  { label: 'Internet', icon: Wifi },
+  { label: 'Beranda', href: '/' },
+  { label: 'Katalog Produk', href: '/catalog', icon: Package },
+  { label: 'Pulsa & Data', href: '/category/pulsa-data', icon: Phone },
+  { label: 'Listrik & Air', href: '/category/listrik-air', icon: Zap },
+  { label: 'Game', href: '/category/games', icon: Gamepad2 },
+  { label: 'E-Wallet', href: '/category/e-wallet', icon: CreditCard },
 ];
+
+function navigateTo(path: string) {
+  window.history.pushState({}, '', path);
+  window.dispatchEvent(new Event('bayarku:navigate'));
+}
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  const token = getAuthToken();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  useEffect(() => {
+    if (!token) {
+      setUser(null);
+      return;
+    }
+
+    // Fetch user profile info
+    fetch(buildApiUrl('/api/auth/me'), {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+      .then(res => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then(data => {
+        if (data.user) {
+          setUser(data.user);
+        }
+      })
+      .catch(() => {
+        // Clear expired token
+        clearAuthToken();
+        setUser(null);
+      });
+  }, [token]);
+
+  const handleLogout = () => {
+    clearAuthToken();
+    setUser(null);
+    setDropdownOpen(false);
+    navigateTo('/');
+  };
 
   return (
     <header
@@ -28,29 +75,33 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <button 
+            onClick={() => navigateTo('/')}
+            className="flex items-center gap-2 flex-shrink-0"
+          >
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
               <Zap size={18} className="text-white" />
             </div>
             <span className="text-white font-bold text-xl tracking-tight">
               Adnanpay<span className="text-amber-400">.</span>
             </span>
-          </div>
+          </button>
 
           {/* Nav Links - desktop */}
           <nav className="hidden lg:flex items-center gap-1">
-            {navLinks.map(({ label, icon: Icon }) => (
-              <button
-                key={label}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all duration-200 text-sm font-medium"
-              >
-                <Icon size={15} />
-                {label}
-              </button>
-            ))}
-            <button className="flex items-center gap-1 px-3 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all duration-200 text-sm font-medium">
-              Lainnya <ChevronDown size={13} />
-            </button>
+            {navLinks.map((link) => {
+              const Icon = link.icon;
+              return (
+                <button
+                  key={link.label}
+                  onClick={() => link.href && navigateTo(link.href)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all duration-200 text-sm font-medium"
+                >
+                  {Icon && <Icon size={15} />}
+                  {link.label}
+                </button>
+              );
+            })}
           </nav>
 
           {/* Search - desktop */}
@@ -74,18 +125,82 @@ export default function Header() {
             <button className="hidden sm:flex p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-all">
               <ShoppingCart size={18} />
             </button>
-            <a href="/demo/dashboard" className="hidden sm:block px-3 py-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg text-sm font-medium transition-all">
-              Dashboard
-            </a>
-            <a href="/demo/admin" className="hidden sm:block px-3 py-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg text-sm font-medium transition-all">
-              Admin
-            </a>
-            <a href="/demo/dashboard" className="hidden sm:block px-3 py-1.5 border border-amber-400/70 text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-400/10 transition-all">
-                Masuk
-              </a>
-            <a href="/demo/dashboard" className="hidden sm:block px-3 py-1.5 bg-amber-400 text-slate-900 rounded-lg text-sm font-bold hover:bg-amber-300 transition-all">
-                Daftar
-              </a>
+            {user ? (
+              <>
+                <button
+                  onClick={() => navigateTo('/dashboard')}
+                  className="hidden sm:block px-3 py-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg text-sm font-medium transition-all"
+                >
+                  Dashboard
+                </button>
+                {user.role === 'admin' && (
+                  <button
+                    onClick={() => navigateTo('/admin')}
+                    className="hidden sm:block px-3 py-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg text-sm font-medium transition-all"
+                  >
+                    Admin
+                  </button>
+                )}
+                {/* User Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-sm font-medium transition-all outline-none"
+                  >
+                    <div className="w-5 h-5 rounded-full bg-amber-400 text-slate-900 flex items-center justify-center font-bold text-xs">
+                      {user.email.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="max-w-[80px] truncate">{user.email}</span>
+                    <ChevronDown size={14} className={`transition-transform duration-200 ${dropdownOpen ? 'rotate-185' : ''}`} />
+                  </button>
+
+                  {dropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-slate-800 border border-white/10 rounded-xl shadow-xl py-2 z-50">
+                      <div className="px-4 py-2 border-b border-white/5">
+                        <p className="text-xs text-slate-400">Masuk sebagai</p>
+                        <p className="text-sm font-bold text-white truncate">{user.email}</p>
+                      </div>
+                      <button
+                        onClick={() => { setDropdownOpen(false); navigateTo('/dashboard'); }}
+                        className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
+                      >
+                        <User size={14} />
+                        Profil & PIN
+                      </button>
+                      <button
+                        onClick={() => { setDropdownOpen(false); navigateTo('/transaksi'); }}
+                        className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
+                      >
+                        <CreditCard size={14} />
+                        Riwayat Transaksi
+                      </button>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 text-sm text-rose-400 hover:text-rose-300 hover:bg-rose-500/5 transition-colors flex items-center gap-2"
+                      >
+                        <LogOut size={14} />
+                        Keluar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => navigateTo('/login')}
+                  className="hidden sm:block px-3 py-1.5 border border-amber-400/70 text-amber-400 rounded-lg text-sm font-medium hover:bg-amber-400/10 transition-all"
+                >
+                  Masuk
+                </button>
+                <button
+                  onClick={() => navigateTo('/register')}
+                  className="hidden sm:block px-3 py-1.5 bg-amber-400 text-slate-900 rounded-lg text-sm font-bold hover:bg-amber-300 transition-all"
+                >
+                  Daftar
+                </button>
+              </>
+            )}
             <button
               className="lg:hidden p-2 text-slate-300 hover:text-white"
               onClick={() => setMobileOpen(!mobileOpen)}
@@ -99,29 +214,65 @@ export default function Header() {
       {/* Mobile menu */}
       {mobileOpen && (
         <div className="lg:hidden bg-slate-900 border-t border-white/10 px-4 py-4 space-y-1">
-          {navLinks.map(({ label, icon: Icon }) => (
+          {navLinks.map(({ label, icon: Icon, href }) => (
             <button
               key={label}
+              onClick={() => { setMobileOpen(false); href && navigateTo(href); }}
               className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all text-sm font-medium"
             >
-              <Icon size={16} />
+              {Icon && <Icon size={16} />}
               {label}
             </button>
           ))}
-          <a href="/demo/dashboard" className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all text-sm font-medium">
-            Dashboard
-            </a>
-            <a href="/demo/admin" className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all text-sm font-medium">
-              Admin
-            </a>
+          {user ? (
+            <>
+              <button
+                onClick={() => { setMobileOpen(false); navigateTo('/dashboard'); }}
+                className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all text-sm font-medium"
+              >
+                <User size={16} />
+                Dashboard
+              </button>
+              <button
+                onClick={() => { setMobileOpen(false); navigateTo('/transaksi'); }}
+                className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all text-sm font-medium"
+              >
+                <CreditCard size={16} />
+                Riwayat Transaksi
+              </button>
+              {user.role === 'admin' && (
+                <button
+                  onClick={() => { setMobileOpen(false); navigateTo('/admin'); }}
+                  className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-all text-sm font-medium"
+                >
+                  <Package size={16} />
+                  Admin
+                </button>
+              )}
+              <button
+                onClick={() => { setMobileOpen(false); handleLogout(); }}
+                className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-rose-400 hover:text-rose-350 hover:bg-rose-500/5 transition-all text-sm font-medium"
+              >
+                <LogOut size={16} />
+                Keluar
+              </button>
+            </>
+          ) : (
             <div className="flex gap-2 pt-2">
-            <a href="/demo/dashboard" className="flex-1 py-2 border border-amber-400/70 text-amber-400 rounded-lg text-sm font-medium text-center">
+              <button
+                onClick={() => { setMobileOpen(false); navigateTo('/login'); }}
+                className="flex-1 py-2 border border-amber-400/70 text-amber-400 rounded-lg text-sm font-medium text-center"
+              >
                 Masuk
-              </a>
-            <a href="/demo/dashboard" className="flex-1 py-2 bg-amber-400 text-slate-900 rounded-lg text-sm font-bold text-center">
+              </button>
+              <button
+                onClick={() => { setMobileOpen(false); navigateTo('/register'); }}
+                className="flex-1 py-2 bg-amber-400 text-slate-900 rounded-lg text-sm font-bold text-center"
+              >
                 Daftar
-              </a>
-          </div>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </header>

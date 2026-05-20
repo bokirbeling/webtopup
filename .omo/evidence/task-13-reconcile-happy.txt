@@ -1,0 +1,25 @@
+Task 13 reconciliation happy evidence
+
+Probe: npm --prefix backend test -- --runTestsByPath src/modules/reconcile/reconcile.service.test.ts
+Result: PASS (3 tests)
+
+Scenario A: paid payment while order remains pending_payment
+- Setup: created guest order in pending_payment; inserted latest Midtrans payment with status=paid.
+- Detected issue: payment_paid_order_not_paid
+- Safe action: transition through OrderService.transitionOrderStatus to paid.
+- Final status: paid
+- Reason: Latest payment is paid while order is still pending_payment.
+- Audit-style metadata: source=reconciliation_job, paymentId=<payment-id>, paymentStatus=paid, checkedAt=<iso-timestamp>.
+
+Scenario B: successful fulfillment while order is only paid
+- Setup: created paid order; inserted latest Digiflazz fulfillment with status=success.
+- Detected issues: fulfillment_success_order_not_started, then fulfillment_success_order_not_success.
+- Safe actions: paid -> fulfillment_pending -> success through OrderService.transitionOrderStatus.
+- Final status: success
+- Reasons: Successful fulfillment exists while order has not recorded fulfillment start; Latest fulfillment is success while order is not success.
+
+Full gates also passed:
+- npm --prefix backend run lint
+- npm --prefix backend run typecheck
+- npm --prefix backend test
+- npm --prefix backend run build

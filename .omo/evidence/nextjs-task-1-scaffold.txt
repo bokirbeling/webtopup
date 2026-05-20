@@ -1,0 +1,35 @@
+Task: N1. Scaffold Next.js app beside existing Vite frontend
+Status: implemented by main agent after subagent abort per user rule.
+
+Created app:
+- next-frontend/package.json
+- next-frontend/.env.example
+- next-frontend/next.config.ts
+- next-frontend/tsconfig.json
+- next-frontend/postcss.config.mjs
+- next-frontend/app/layout.tsx
+- next-frontend/app/page.tsx
+- next-frontend/app/dashboard/page.tsx
+- next-frontend/app/admin/page.tsx
+- next-frontend/app/invoice/[code]/page.tsx
+- next-frontend/app/lacak/page.tsx
+- next-frontend/app/globals.css
+
+Scope notes:
+- Existing Vite frontend remains in Frontend/ as rollback.
+- No backend code changed.
+- No deploy performed.
+- Frontend env is public-only: NEXT_PUBLIC_API_BASE_URL.
+
+Verification:
+- `npm install`: passed; npm audit reports 2 moderate dependency advisories, not force-fixed because it may introduce breaking changes.
+- `npm run lint`: passed using ESLint CLI, not deprecated interactive `next lint`.
+- `npm run typecheck`: passed.
+- `npm run build`: passed with Next.js 15.5.18.
+- Generated routes: `/`, `/dashboard`, `/admin`, `/invoice/[code]`, `/lacak`.
+- `lsp_diagnostics` on `next-frontend`: 0 diagnostics across scaffold TSX files.
+- Secret scan on scaffold source: no service-role/JWT/Digiflazz/Midtrans/SMTP/SSH secret values.
+
+Notes:
+- `next lint` is deprecated/interactively prompts in Next.js 15, so the scaffold uses `eslint .` with `eslint-config-next`.
+- `node_modules/`, `.next/`, and `*.tsbuildinfo` are ignored inside `next-frontend/`.

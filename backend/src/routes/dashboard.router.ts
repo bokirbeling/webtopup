@@ -2,6 +2,15 @@ import { Router, type Request, type Response } from 'express';
 import { type AuthService } from '../modules/auth/auth.service';
 import { createAuthenticationMiddleware, requireRoles } from '../modules/auth/auth.middleware';
 import type { DashboardContentRepository } from '../modules/dashboard/dashboard-content.repository';
+import {
+  heroLinkSchema,
+  promoSchema,
+  dashboardCategorySchema,
+  dealSchema,
+  statSchema,
+  featureSchema,
+  zodValidate
+} from '../shared/validation';
 
 export type DashboardContentRouterDependencies = Readonly<{
   repository: DashboardContentRepository;
@@ -30,7 +39,7 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
     }
   });
 
-  router.post('/hero', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  router.post('/hero', authenticate, requireAdmin, zodValidate(heroLinkSchema), async (req: Request, res: Response) => {
     try {
       const data = await deps.repository.createHeroLink(req.body);
       res.status(201).json(data);
@@ -39,7 +48,7 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
     }
   });
 
-  router.put('/hero/:id', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  router.put('/hero/:id', authenticate, requireAdmin, zodValidate(heroLinkSchema), async (req: Request, res: Response) => {
     try {
       const id = getParamId(req.params.id);
       const data = await deps.repository.updateHeroLink(id, req.body);
@@ -72,7 +81,7 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
     }
   });
 
-  router.post('/promos', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  router.post('/promos', authenticate, requireAdmin, zodValidate(promoSchema), async (req: Request, res: Response) => {
     try {
       const data = await deps.repository.createPromo(req.body);
       res.status(201).json(data);
@@ -81,7 +90,7 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
     }
   });
 
-  router.put('/promos/:id', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  router.put('/promos/:id', authenticate, requireAdmin, zodValidate(promoSchema), async (req: Request, res: Response) => {
     try {
       const id = getParamId(req.params.id);
       const data = await deps.repository.updatePromo(id, req.body);
@@ -114,7 +123,7 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
     }
   });
 
-  router.post('/categories', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  router.post('/categories', authenticate, requireAdmin, zodValidate(dashboardCategorySchema), async (req: Request, res: Response) => {
     try {
       const data = await deps.repository.createCategory(req.body);
       res.status(201).json(data);
@@ -123,9 +132,9 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
     }
   });
 
-  router.put('/categories/:id', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  router.put('/categories/:id', authenticate, requireAdmin, zodValidate(dashboardCategorySchema), async (req: Request, res: Response) => {
     try {
-      const data = await deps.repository.updateCategory(req.params.id, req.body);
+      const data = await deps.repository.updateCategory(req.params.id as string, req.body);
       res.json(data);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -134,7 +143,7 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
 
   router.delete('/categories/:id', authenticate, requireAdmin, async (req: Request, res: Response) => {
     try {
-      await deps.repository.deleteCategory(req.params.id);
+      await deps.repository.deleteCategory(req.params.id as string);
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -154,7 +163,7 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
     }
   });
 
-  router.post('/deals', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  router.post('/deals', authenticate, requireAdmin, zodValidate(dealSchema), async (req: Request, res: Response) => {
     try {
       const data = await deps.repository.createDeal(req.body);
       res.status(201).json(data);
@@ -163,9 +172,9 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
     }
   });
 
-  router.put('/deals/:id', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  router.put('/deals/:id', authenticate, requireAdmin, zodValidate(dealSchema), async (req: Request, res: Response) => {
     try {
-      const data = await deps.repository.updateDeal(req.params.id, req.body);
+      const data = await deps.repository.updateDeal(req.params.id as string, req.body);
       res.json(data);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -174,7 +183,7 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
 
   router.delete('/deals/:id', authenticate, requireAdmin, async (req: Request, res: Response) => {
     try {
-      await deps.repository.deleteDeal(req.params.id);
+      await deps.repository.deleteDeal(req.params.id as string);
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -194,7 +203,7 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
     }
   });
 
-  router.post('/stats', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  router.post('/stats', authenticate, requireAdmin, zodValidate(statSchema), async (req: Request, res: Response) => {
     try {
       const data = await deps.repository.createStat(req.body);
       res.status(201).json(data);
@@ -203,9 +212,9 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
     }
   });
 
-  router.put('/stats/:id', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  router.put('/stats/:id', authenticate, requireAdmin, zodValidate(statSchema), async (req: Request, res: Response) => {
     try {
-      const data = await deps.repository.updateStat(req.params.id, req.body);
+      const data = await deps.repository.updateStat(req.params.id as string, req.body);
       res.json(data);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -214,7 +223,7 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
 
   router.delete('/stats/:id', authenticate, requireAdmin, async (req: Request, res: Response) => {
     try {
-      await deps.repository.deleteStat(req.params.id);
+      await deps.repository.deleteStat(req.params.id as string);
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -234,7 +243,7 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
     }
   });
 
-  router.post('/features', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  router.post('/features', authenticate, requireAdmin, zodValidate(featureSchema), async (req: Request, res: Response) => {
     try {
       const data = await deps.repository.createFeature(req.body);
       res.status(201).json(data);
@@ -243,9 +252,9 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
     }
   });
 
-  router.put('/features/:id', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  router.put('/features/:id', authenticate, requireAdmin, zodValidate(featureSchema), async (req: Request, res: Response) => {
     try {
-      const data = await deps.repository.updateFeature(req.params.id, req.body);
+      const data = await deps.repository.updateFeature(req.params.id as string, req.body);
       res.json(data);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -254,7 +263,7 @@ export function createDashboardContentRouter(deps: DashboardContentRouterDepende
 
   router.delete('/features/:id', authenticate, requireAdmin, async (req: Request, res: Response) => {
     try {
-      await deps.repository.deleteFeature(req.params.id);
+      await deps.repository.deleteFeature(req.params.id as string);
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ error: error.message });

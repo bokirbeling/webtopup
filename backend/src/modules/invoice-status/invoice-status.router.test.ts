@@ -26,6 +26,7 @@ function createStatusFixture() {
 
   const app = createApp({
     orderService,
+    orderRepository,
     paymentRepository,
     fulfillmentRepository
   });
@@ -151,6 +152,6 @@ describe("GET /api/invoices/:invoiceCode/status", () => {
     const orderListResponse = await request(app).get("/api/orders");
 
     expect(invoiceListResponse.status).toBe(404);
-    expect(orderListResponse.status).toBe(404);
+    expect(orderListResponse.status).toBe(401);
   });
 });

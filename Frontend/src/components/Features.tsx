@@ -1,57 +1,68 @@
-import { ShieldCheck, Zap, Headphones, CreditCard, RefreshCw, Award } from 'lucide-react';
+import { ShieldCheck, Zap, Headphones, CreditCard, RefreshCw, Award, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { buildApiUrl } from '../lib/api';
 
-const features = [
-  {
-    icon: ShieldCheck,
-    title: 'Transaksi 100% Aman',
-    desc: 'Sistem enkripsi SSL 256-bit melindungi setiap transaksi. Data pribadi dan finansialmu terjamin.',
-    color: 'text-emerald-600',
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-100',
-  },
-  {
-    icon: Zap,
-    title: 'Proses Instan',
-    desc: 'Transaksi diproses dalam hitungan detik. Tidak perlu menunggu lama untuk menikmati layananmu.',
-    color: 'text-amber-600',
-    bg: 'bg-amber-50',
-    border: 'border-amber-100',
-  },
-  {
-    icon: Headphones,
-    title: 'CS 24/7',
-    desc: 'Tim customer service kami siap membantu kamu kapan saja melalui live chat, WhatsApp, dan email.',
-    color: 'text-blue-600',
-    bg: 'bg-blue-50',
-    border: 'border-blue-100',
-  },
-  {
-    icon: CreditCard,
-    title: 'Banyak Metode Bayar',
-    desc: 'Transfer bank, e-wallet, kartu kredit/debit, virtual account, dan gerai minimarket tersedia.',
-    color: 'text-rose-600',
-    bg: 'bg-rose-50',
-    border: 'border-rose-100',
-  },
-  {
-    icon: RefreshCw,
-    title: 'Refund Otomatis',
-    desc: 'Jika transaksi gagal, saldo dikembalikan otomatis. Tidak ada risiko kehilangan uang.',
-    color: 'text-teal-600',
-    bg: 'bg-teal-50',
-    border: 'border-teal-100',
-  },
-  {
-    icon: Award,
-    title: 'Harga Terbaik',
-    desc: 'Kami berkomitmen memberikan harga terjangkau dengan kualitas layanan premium untuk semua pengguna.',
-    color: 'text-orange-600',
-    bg: 'bg-orange-50',
-    border: 'border-orange-100',
-  },
-];
+type FeatureData = {
+  id: string;
+  icon_name: string;
+  title: string;
+  description: string;
+  is_active: boolean;
+  display_order: number;
+};
+
+const iconMap: Record<string, any> = {
+  ShieldCheck, Zap, Headphones, CreditCard, RefreshCw, Award
+};
+
+const colorMap: Record<string, { text: string; bg: string; border: string }> = {
+  'Transaksi 100% Aman': { text: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+  'Proses Instan': { text: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100' },
+  'CS 24/7': { text: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+  'Banyak Metode Bayar': { text: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100' },
+  'Refund Otomatis': { text: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-100' },
+  'Harga Terbaik': { text: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100' },
+};
 
 export default function Features() {
+  const [features, setFeatures] = useState<FeatureData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchFeatures() {
+      try {
+        const url = buildApiUrl('/dashboard/features');
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          setFeatures(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch features:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchFeatures();
+  }, []);
+
+  if (loading) {
+    return (
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (features.length === 0) {
+    return null;
+  }
+
   return (
     <section className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -69,18 +80,23 @@ export default function Features() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map(({ icon: Icon, title, desc, color, bg, border }) => (
-            <div
-              key={title}
-              className={`group p-6 rounded-2xl border ${border} bg-white hover:shadow-lg hover:-translate-y-1 transition-all duration-200`}
-            >
-              <div className={`w-12 h-12 ${bg} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                <Icon size={22} className={color} />
+          {features.map((feature) => {
+            const Icon = iconMap[feature.icon_name] || ShieldCheck;
+            const colors = colorMap[feature.title] || { text: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-100' };
+            
+            return (
+              <div
+                key={feature.id}
+                className={`group bg-white rounded-2xl p-6 border ${colors.border} hover:shadow-lg hover:-translate-y-1 transition-all`}
+              >
+                <div className={`w-12 h-12 ${colors.bg} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                  <Icon size={22} className={colors.text} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">{feature.title}</h3>
+                <p className="text-slate-500 text-sm leading-relaxed">{feature.description}</p>
               </div>
-              <h3 className="font-bold text-slate-900 mb-2">{title}</h3>
-              <p className="text-slate-500 text-sm leading-relaxed">{desc}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* CTA Banner */}

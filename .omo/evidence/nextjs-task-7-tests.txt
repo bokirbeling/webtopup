@@ -1,0 +1,26 @@
+Task: N7. Add Next.js tests and visual smoke
+Status: implemented by main agent.
+
+Tests added:
+- `next-frontend/scripts/smoke-test.mjs`
+- `next-frontend/package.json` script `npm test` runs the smoke test.
+
+Coverage:
+- Landing page imports product catalog.
+- Catalog has category/search API behavior and checkout payload markers.
+- Dashboard has auth/login/reseller/transaction markers.
+- Admin has forbidden guard, Digiflazz ops, sync, and category image upload markers.
+- Invoice route has public status polling markers.
+- `/lacak` links to invoice route.
+- `.env.example` documents local and production public API base.
+
+Verification:
+- `npm run lint`: passed. Existing non-blocking N2 catalog image fallback warning remains.
+- `npm run typecheck`: passed.
+- `npm test`: passed; `Next.js scaffold smoke checks passed.`
+- `npm run build`: passed with Next.js 15.5.18.
+- `lsp_diagnostics` on `next-frontend`: 0 diagnostics across TSX files.
+
+Notes:
+- Smoke test is static/source-level. It confirms routes/components/API markers exist.
+- Browser automation was not run in this pass.

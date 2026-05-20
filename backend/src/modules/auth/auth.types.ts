@@ -11,6 +11,7 @@ export type AuthUser = Readonly<{
   isResellerActive: boolean;
   resellerStatus: ResellerStatus;
   emailVerifiedAt: Date | null;
+  metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
 }>;

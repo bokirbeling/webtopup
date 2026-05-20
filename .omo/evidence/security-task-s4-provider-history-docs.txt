@@ -1,0 +1,6 @@
+S4. Provider History Docs
+
+Documentation created at docs/payment-integrity/provider-response-history.md covers:
+- provider_events schema
+- Access control for Resellers and Admin
+- Balance ledgers purpose

@@ -1,0 +1,9 @@
+S4. Admin Balance Ledgers
+
+Implemented backend support for balance ledgers.
+Admin can list ledger entries via GET /api/admin/audit/ledger.
+Ledger records source (api, manual, calculated) and provider (midtrans, digiflazz).
+
+Verification:
+- backend/src/modules/audit/provider-audit.repository.ts
+- backend/src/modules/audit/provider-audit.router.ts

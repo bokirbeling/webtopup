@@ -1,0 +1,20 @@
+Task 7 email verification evidence
+
+Implemented:
+- Added non-breaking Supabase migration supabase/migrations/20260515110000_email_verification_fields.sql for users and demo_users.
+- Extended custom JWT auth domain/repository/service/router with email_verified_at plus hashed verification token, expiry, sent timestamp, and resend count.
+- Added POST /api/auth/email-verification/request, /resend, and /verify.
+- HTTP auth/register/login/me/request/verify responses include verification status and do not include password hashes, verification token hashes, or raw verification tokens.
+- Verification sender injection delivers the raw token only to the sender boundary; repository stores only SHA-256 token hashes.
+- Account reseller request and admin reseller approval reject unverified email with EMAIL_VERIFICATION_REQUIRED.
+
+Verification:
+- npm test -- --runTestsByPath src/modules/auth/auth.router.test.ts src/modules/account/account.router.test.ts src/modules/admin/admin.router.test.ts --silent
+- Result: Test Suites 3 passed, Tests 6 passed.
+
+Additional verification:
+- npm run typecheck (backend): passed.
+- npm run build (backend): passed.
+- npx jest --runInBand --silent --verbose=false 2>$null: passed.
+- Manual API driver: register -> unverified reseller rejected -> request verification -> verify captured sender token -> reseller request allowed, passed.
+- Re-ran backend typecheck/build/tests and manual API driver after SMTP sender wiring: passed.

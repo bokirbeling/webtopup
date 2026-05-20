@@ -1,0 +1,13 @@
+S2. Harden purchase truth source: Digiflazz API/callback only
+
+Fulfillment service triggers only for orders in 'paid' status.
+Success/failed status updates only from valid Digiflazz response or callback.
+Monotonic transition guard ensures order status doesn't revert from unpaid states.
+
+Focused test results:
+- rejects fulfillment trigger for unpaid order: PASS
+- ignores success callback for unpaid order via monotonic guard: PASS
+
+Verification:
+- backend/src/modules/fulfillment/fulfillment.service.ts
+- backend/src/modules/fulfillment/fulfillment.router.test.ts

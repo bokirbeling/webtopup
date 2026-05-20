@@ -1,0 +1,27 @@
+Task 7 admin forbidden evidence
+Date: 2026-05-14
+
+Evidence source:
+- `Frontend/src/test/app.smoke.test.tsx`
+- Local final verification command: `npm --prefix Frontend test`
+
+Covered scenarios:
+- Anonymous user opens `/admin`.
+- UI renders `data-testid="admin-forbidden"` with text `Login admin diperlukan`.
+- Product management control `data-testid="admin-product-create"` is absent.
+- Pricing management control `data-testid="admin-pricing-create"` is absent.
+- Reseller approve control text `Approve` is absent.
+- No private admin fetch is executed for anonymous access.
+
+Non-admin session scenario:
+- Stored pengguna session opens `/admin`.
+- Frontend verifies the session through `http://localhost:3001/api/auth/me`.
+- UI renders `data-testid="admin-forbidden"` with text `Role admin diperlukan`.
+- Product/pricing/reseller admin controls remain hidden.
+
+Verification result:
+- `npm --prefix Frontend test` passed with 1 test file and 12 tests.
+- Final local verification also passed frontend lint, typecheck, test, and build.
+
+Notes:
+- Screenshot capture was not produced in this local environment. This text evidence is deterministic jsdom evidence from the admin route tests.

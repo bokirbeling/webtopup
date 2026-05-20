@@ -150,9 +150,13 @@ function createLifecycleFixture(options: {
   const app = createApp({
     authRepository: options.authRepository,
     catalogRepository: options.catalogRepository,
+    orderRepository,
+    paymentRepository,
+    fulfillmentRepository,
     orderService,
     paymentService,
-    fulfillmentService
+    fulfillmentService,
+    auditLogger
   });
 
   return {

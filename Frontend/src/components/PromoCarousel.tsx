@@ -1,55 +1,67 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { buildApiUrl } from '../lib/api';
 
-const promos = [
-  {
-    id: 1,
-    title: 'Cashback 25% Pulsa All Operator',
-    subtitle: 'Berlaku setiap Senin & Rabu',
-    badge: 'HOT PROMO',
-    badgeColor: 'bg-rose-500',
-    cta: 'Beli Sekarang',
-    bg: 'from-blue-600 via-blue-700 to-slate-800',
-    accent: 'bg-blue-400/20',
-    image: 'https://images.pexels.com/photos/4482900/pexels-photo-4482900.jpeg?auto=compress&cs=tinysrgb&w=600',
-    discount: '25%',
-  },
-  {
-    id: 2,
-    title: 'Gratis Biaya Admin Bayar PLN',
-    subtitle: 'Untuk semua pelanggan setia',
-    badge: 'SPESIAL',
-    badgeColor: 'bg-amber-500',
-    cta: 'Bayar Listrik',
-    bg: 'from-amber-500 via-orange-600 to-red-700',
-    accent: 'bg-amber-400/20',
-    image: 'https://images.pexels.com/photos/1036936/pexels-photo-1036936.jpeg?auto=compress&cs=tinysrgb&w=600',
-    discount: 'FREE',
-  },
-  {
-    id: 3,
-    title: 'Top Up Game Dapat Bonus Diamond',
-    subtitle: 'Mobile Legends, PUBG, Free Fire & lebih',
-    badge: 'TERBATAS',
-    badgeColor: 'bg-emerald-500',
-    cta: 'Top Up Game',
-    bg: 'from-emerald-600 via-teal-700 to-slate-800',
-    accent: 'bg-emerald-400/20',
-    image: 'https://images.pexels.com/photos/3165335/pexels-photo-3165335.jpeg?auto=compress&cs=tinysrgb&w=600',
-    discount: '+50',
-  },
-];
+type PromoSlide = {
+  id: string;
+  title: string;
+  subtitle: string;
+  badge_text: string;
+  badge_color: string;
+  cta_text: string;
+  cta_link: string;
+  background_gradient: string;
+  image_url: string;
+  is_active: boolean;
+  display_order: number;
+};
 
 export default function PromoCarousel() {
   const [current, setCurrent] = useState(0);
+  const [promos, setPromos] = useState<PromoSlide[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    async function fetchPromos() {
+      try {
+        const url = buildApiUrl('/dashboard/promos');
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          setPromos(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch promos:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchPromos();
+  }, []);
+
+  useEffect(() => {
+    if (promos.length === 0) return;
     const timer = setInterval(() => setCurrent((c) => (c + 1) % promos.length), 4000);
     return () => clearInterval(timer);
-  }, []);
+  }, [promos.length]);
 
   const prev = () => setCurrent((c) => (c - 1 + promos.length) % promos.length);
   const next = () => setCurrent((c) => (c + 1) % promos.length);
+
+  if (loading) {
+    return (
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-2 pb-10">
+        <div className="flex items-center justify-center py-20 bg-slate-100 rounded-3xl">
+          <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
+        </div>
+      </section>
+    );
+  }
+
+  if (promos.length === 0) {
+    return null;
+  }
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-2 pb-10">
@@ -61,34 +73,29 @@ export default function PromoCarousel() {
               index === current ? 'opacity-100 scale-100' : 'opacity-0 scale-105 pointer-events-none'
             }`}
           >
-            <div className={`relative h-full bg-gradient-to-r ${promo.bg} min-h-[200px] md:min-h-[260px]`}>
+            <div className={`relative h-full bg-gradient-to-r ${promo.background_gradient} min-h-[200px] md:min-h-[260px]`}>
               {/* Background image */}
               <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden">
                 <img
-                  src={promo.image}
+                  src={promo.image_url}
                   alt={promo.title}
                   className="w-full h-full object-cover opacity-20 mix-blend-overlay"
                 />
-                <div className={`absolute inset-0 ${promo.accent}`} />
+                <div className="absolute inset-0 bg-white/10" />
               </div>
 
               <div className="relative z-10 flex items-center h-full px-8 md:px-12 py-10">
                 <div>
-                  <div className={`inline-block ${promo.badgeColor} text-white text-xs font-bold px-3 py-1 rounded-full mb-3 tracking-wider`}>
-                    {promo.badge}
+                  <div className={`inline-block ${promo.badge_color} text-white text-xs font-bold px-3 py-1 rounded-full mb-3 tracking-wider`}>
+                    {promo.badge_text}
                   </div>
                   <h2 className="text-2xl md:text-3xl font-extrabold text-white leading-tight mb-2 max-w-md">
                     {promo.title}
                   </h2>
                   <p className="text-white/70 mb-5 text-sm md:text-base">{promo.subtitle}</p>
                   <button className="bg-white text-slate-800 font-bold px-6 py-2.5 rounded-xl text-sm hover:bg-slate-100 transition-all shadow-lg">
-                    {promo.cta}
+                    {promo.cta_text}
                   </button>
-                </div>
-
-                {/* Big discount number */}
-                <div className="absolute right-6 md:right-16 top-1/2 -translate-y-1/2 text-white/10 font-black text-8xl md:text-9xl select-none pointer-events-none">
-                  {promo.discount}
                 </div>
               </div>
             </div>

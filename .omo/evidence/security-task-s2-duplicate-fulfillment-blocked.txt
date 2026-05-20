@@ -1,0 +1,9 @@
+S2. Duplicate fulfillment blocked
+
+Fulfillment repository findFulfillmentByProviderAndReference ensures only one fulfillment record per order.
+Callback handling registers every webhook event with ref_id, rc, and sn as event_key.
+Duplicate callbacks return DUPLICATE and do not re-trigger order transitions or duplicate fulfillment records.
+
+Verification:
+- backend/src/modules/fulfillment/fulfillment.service.ts (handleDigiflazzCallback)
+- backend/src/modules/fulfillment/fulfillment.repository.ts

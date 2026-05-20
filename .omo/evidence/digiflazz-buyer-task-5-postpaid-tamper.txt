@@ -1,0 +1,25 @@
+# Digiflazz Buyer Task 5 Postpaid Tamper Evidence
+
+Commands run:
+- `npm test -- --runTestsByPath src/modules/postpaid/postpaid.router.test.ts --silent`
+
+Tamper cases observed:
+- Payment body with `amount_minor=1` and `selling_price=1` was rejected with HTTP `400` and `VALIDATION_ERROR`.
+- Payment body with tampered `buyer_sku_code=evil-sku` and `customer_no=evil-customer` was ignored for Buyer payment execution.
+- Mocked Buyer pay response attempted to return `admin=999999`, `price=999999`, and `selling_price=999999`.
+
+Stored inquiry amount won:
+- Stored inquiry values before pay: `price=10000`, `selling_price=11000`, `amount_minor=11000`.
+- Response after pay still returned `buyer_sku_code=pln`, `customer_no=530000000001`, `price=10000`, `selling_price=11000`, `amount_minor=11000`.
+- Captured mocked Buyer request for pay used stored `buyer_sku_code=pln`, stored `customer_no=530000000001`, and stored `ref_id=tamper-ref-001`.
+
+Ownership:
+- Another authenticated user received HTTP `403` when attempting to pay an inquiry owned by the original user.
+- The original owner could pay the same inquiry successfully.
+
+Secrets:
+- No Digiflazz API key, signatures, JWT secret, Supabase service-role key, or production token values are recorded here.
+
+Manual HTTP QA:
+- The same localhost driver sent tampered pay input with mount_minor=1 and observed HTTP 400.
+- A later pay request with tampered uyer_sku_code and customer_no still returned stored mount_minor=11000 and sent stored Buyer identifiers; signature value intentionally omitted.

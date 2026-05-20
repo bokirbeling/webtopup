@@ -1,0 +1,8 @@
+S4. Reseller History Table
+
+Resellers can access their own provider events via GET /api/account/audit/events.
+The API automatically filters by authUser.id and hides raw_payload for security.
+
+Verification:
+- backend/src/modules/audit/provider-audit.router.ts
+- backend/src/app.ts (route mounting)

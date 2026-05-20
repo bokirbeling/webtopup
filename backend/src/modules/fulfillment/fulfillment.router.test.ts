@@ -326,7 +326,8 @@ describe("digiflazz fulfillment routes", () => {
     const auditLogger = new InMemoryAuditLogger();
     const app = createApp({
       orderService: services.orderService,
-      fulfillmentService: services.fulfillmentService
+      fulfillmentService: services.fulfillmentService,
+      auditLogger
     });
     const order = await createPaidDigiflazzOrder(services);
 

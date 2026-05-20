@@ -1,0 +1,14 @@
+Task 14 replay idempotency and failure regression evidence
+
+Command:
+npm --prefix backend test -- --runTestsByPath src/modules/regression/lifecycle.regression.test.ts
+
+Result: PASS (3 tests)
+
+Covered scenarios:
+- Full local guest lifecycle: POST /api/orders creates ORD-TEST-001 / INV-TEST-0001; payment init uses local mocked Midtrans response; signed Midtrans webhook fixture with transaction_id=TX-TEST-001 transitions order to paid; Digiflazz trigger and success callback fixture with trx_id=DGF-TEST-001 transitions order to success; GET /api/invoices/INV-TEST-0001/status returns order_id=ORD-TEST-001 and status=success.
+- Replay idempotency: the same signed Midtrans callback payload with transaction_id=TX-TEST-001 is posted twice; first response is PROCESSED; replay response is { code: "DUPLICATE", message: "Duplicate Midtrans webhook ignored.", idempotent: true }; the latest payment id remains unchanged after replay, proving no duplicate payment row was created for the provider reference.
+- Signature failure: invalid Midtrans signature returns 401 before mutation; payment lookup remains null; order status remains pending_payment; sanitized audit event type webhook_signature_invalid is recorded without provider keys.
+- Out-of-order reconciliation: fulfillment success while order is only paid is corrected through transition service paid -> fulfillment_pending -> success; later illegal failed-payment correction after success is denied and status remains success.
+
+No external live network dependency was used; all provider calls are local/in-memory or mocked test responses.

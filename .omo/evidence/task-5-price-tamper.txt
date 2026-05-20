@@ -1,0 +1,27 @@
+Task 5 price tamper evidence
+
+Command:
+npx tsx C:\Users\ADMINI~1\AppData\Local\Temp\opencode\task5_price_manual.ts
+Observed outcome:
+- Authenticated seller POST /api/orders with product_id=product-seller, amount_minor=1, and total_price=1 returned 201 with order_id=seller-order-1, invoice_code=INV-SELLER-1, status=pending_payment.
+- Stored order ignored client price tampering and used server pricing: userId attached, productCode=ml-diamond-172, provider=digiflazz, amountMinor=10500, basePriceSnapshot=10000, markupSnapshot=500, rolePriceSnapshot=10500, pricingRuleIdSnapshot=seller-product.
+
+Command:
+npm test -- --runInBand
+Observed outcome:
+- Jest completed with 13 passed suites and 35 passed tests.
+
+Command:
+npm run lint
+Observed outcome:
+- ESLint completed successfully with exit code 0.
+
+Command:
+npm run typecheck
+Observed outcome:
+- TypeScript typecheck completed successfully with exit code 0.
+
+Command:
+npm run build
+Observed outcome:
+- TypeScript build completed successfully with exit code 0.

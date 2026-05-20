@@ -11,6 +11,7 @@ export type UpdateAuthUserInput = Readonly<{
   emailVerificationExpiresAt?: Date | null;
   emailVerificationSentAt?: Date | null;
   emailVerificationResendCount?: number;
+  metadata?: Record<string, any>;
   updatedAt: Date;
 }>;
 
@@ -85,6 +86,15 @@ function parseUserRow(value: unknown): AuthUserRecord {
     throw new Error("Invalid email verification token hash from persistence layer.");
   }
 
+  let parsedMetadata: Record<string, any> = {};
+  if (row.metadata) {
+    try {
+      parsedMetadata = typeof row.metadata === "string" ? JSON.parse(row.metadata) : row.metadata;
+    } catch (e) {
+      // Ignore
+    }
+  }
+
   return {
     id: row.id,
     email: row.email,
@@ -93,6 +103,7 @@ function parseUserRow(value: unknown): AuthUserRecord {
     isResellerActive: row.is_reseller_active,
     resellerStatus: asResellerStatus(row.reseller_status),
     emailVerifiedAt: parseNullableDate(row.email_verified_at, "email verified timestamp"),
+    metadata: parsedMetadata,
     emailVerificationTokenHash: row.email_verification_token_hash,
     emailVerificationExpiresAt: parseNullableDate(row.email_verification_expires_at, "email verification expiry"),
     emailVerificationSentAt: parseNullableDate(row.email_verification_sent_at, "email verification sent timestamp"),
@@ -136,7 +147,7 @@ export class SupabaseAuthRepository implements AuthRepository {
   }
 
   private selectColumns() {
-    return "id,email,password_hash,role,is_reseller_active,reseller_status,email_verified_at,email_verification_token_hash,email_verification_expires_at,email_verification_sent_at,email_verification_resend_count,created_at,updated_at";
+    return "id,email,password_hash,role,is_reseller_active,reseller_status,email_verified_at,metadata,email_verification_token_hash,email_verification_expires_at,email_verification_sent_at,email_verification_resend_count,created_at,updated_at";
   }
 
   private async request(path: string, init: RequestInit = {}): Promise<Response> {
@@ -297,6 +308,10 @@ export class SupabaseAuthRepository implements AuthRepository {
       body.email_verification_resend_count = input.emailVerificationResendCount;
     }
 
+    if (input.metadata !== undefined) {
+      body.metadata = input.metadata;
+    }
+
     const response = await this.request(
       "/rest/v1/" + this.tableName() + "?id=eq." + encodeURIComponent(userId) + "&select=" + this.selectColumns(),
       {
@@ -344,6 +359,7 @@ export class InMemoryAuthRepository implements AuthRepository {
       isResellerActive: false,
       resellerStatus: "none",
       emailVerifiedAt: null,
+      metadata: {},
       emailVerificationTokenHash: null,
       emailVerificationExpiresAt: null,
       emailVerificationSentAt: null,
@@ -387,6 +403,7 @@ export class InMemoryAuthRepository implements AuthRepository {
       emailVerificationExpiresAt: input.emailVerificationExpiresAt === undefined ? existingUser.emailVerificationExpiresAt : input.emailVerificationExpiresAt,
       emailVerificationSentAt: input.emailVerificationSentAt === undefined ? existingUser.emailVerificationSentAt : input.emailVerificationSentAt,
       emailVerificationResendCount: input.emailVerificationResendCount ?? existingUser.emailVerificationResendCount,
+      metadata: input.metadata === undefined ? existingUser.metadata : { ...existingUser.metadata, ...input.metadata },
       updatedAt: input.updatedAt
     };
 

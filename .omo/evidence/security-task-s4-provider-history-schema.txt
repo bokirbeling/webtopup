@@ -1,0 +1,11 @@
+S4. Provider Response History Schema
+
+Implemented tables:
+- provider_events: append-only log of provider interactions.
+- balance_ledgers: tracking Digiflazz and Midtrans funds.
+
+Tables include order_id, payment_id, fulfillment_id references and JSONB payloads.
+RLS enabled for service_role only.
+
+Verification:
+- supabase/migrations/20260516151300_provider_events_and_balance_ledgers.sql

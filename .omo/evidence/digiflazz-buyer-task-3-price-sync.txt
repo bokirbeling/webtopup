@@ -1,0 +1,37 @@
+Digiflazz Buyer Task 3 - Price Sync Evidence
+Date: 2026-05-15
+
+Implemented surface:
+- Admin-only POST /api/admin/catalog/digiflazz/price-list/sync.
+- Uses centralized Buyer client priceList({ cmd: "prepaid" }) and mocked fetch in tests/manual QA.
+- Upserts products from cached DB repository state by skuDigiflazz without changing public catalog live-fetch behavior.
+
+Observed sync counts:
+- Focused Jest mocked Digiflazz response: product_count=2, active_count=1, inactive_count=1.
+- Live Express manual driver mocked Digiflazz response: {"syncStatus":200,"publicStatus":200,"productCount":2,"activeCount":1,"inactiveCount":1,"publicCount":1}.
+
+Mapping verified:
+- buyer_sku_code -> products.sku_digiflazz.
+- product_name -> products.name.
+- category -> products.category.
+- brand -> products.provider.
+- price -> products.base_price_minor.
+- is_active true only when buyer_product_status and seller_product_status are both true.
+- metadata includes seller_name, type, buyer_product_status, seller_product_status, stock, multi, start_cut_off, end_cut_off, desc, sync_source, synced_at, and unlimited_stock when provided.
+
+Commands run:
+- lsp_diagnostics on backend/src/modules/catalog/digiflazz-price-sync.service.ts: no diagnostics.
+- lsp_diagnostics on backend/src/modules/catalog/pricing.service.ts: no diagnostics.
+- lsp_diagnostics on backend/src/modules/catalog/catalog.router.ts: no diagnostics.
+- lsp_diagnostics on backend/src/app.ts: no diagnostics.
+- lsp_diagnostics on backend/src/modules/catalog/catalog.router.test.ts: no diagnostics.
+- npm test -- --runTestsByPath src/modules/catalog/catalog.router.test.ts --silent: passed, 6 tests.
+- npm run lint: passed.
+- npm run typecheck: passed.
+- npm test -- --silent: passed.
+- npm run build: passed.
+- Live Express HTTP driver with mocked Digiflazz fetch: syncStatus=200, publicStatus=200, productCount=2, activeCount=1, inactiveCount=1, publicCount=1.
+
+Secret handling:
+- No live Digiflazz API calls were made.
+- No real API keys, signatures, Supabase service-role keys, JWT secrets, SMTP passwords, SSH passphrases, or production tokens are included here.

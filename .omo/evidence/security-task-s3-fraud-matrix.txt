@@ -1,0 +1,15 @@
+S3. Fraud Matrix Regression Tests
+
+Implemented comprehensive regression tests for common fraud scenarios.
+
+Scenarios covered:
+1. Mismatch Amount Webhook: VALID signature but INVALID amount rejected (400).
+2. Fulfillment Before Payment: Trigger blocked if order status is not 'paid' (400).
+3. Success Callback on Unpaid Order: Sukses Digiflazz callback ignored for created/pending_payment order (IGNORED).
+4. Duplicate Callback: Unique event_key prevents repeated transitions (DUPLICATE).
+5. Conflicting Webhook: Deny/Cancel ignored if already marked paid (400).
+
+Commands:
+- npm test -- --runTestsByPath src/modules/regression/fraud-matrix.regression.test.ts
+
+Result: ALL PASS

@@ -1,0 +1,36 @@
+# Decisions
+
+- Chose Node+TypeScript backend skeleton with scripts matching frontend conventions where sensible: `dev`, `build`, `lint`, and `typecheck`.
+- Used `module`/`moduleResolution` = `NodeNext` in `backend/tsconfig.json` for TypeScript 6 compatibility and future Node runtime alignment.
+- Kept scope strict to Task 1: no Express routes/business endpoints added, only workspace scaffolding and env placeholders.
+- For Task 2, required env surface was intentionally minimal and explicit (`NODE_ENV`, `PORT`) so bootstrap can be validated now without pulling in downstream payment/order requirements.
+- Added a dedicated health route module (`backend/src/routes/health.ts`) mounted by `createApp()` to keep app bootstrap composable for upcoming tasks.
+- For Task 3, installed Supabase CLI from official GitHub release artifacts (Windows amd64 tarball) into user-local PATH to satisfy direct `supabase ...` command verification in this environment.
+- Added Supabase env binding directly in existing `readEnv()` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) instead of introducing a separate config layer, to preserve the current strict fail-fast startup contract.
+- Chose `supabase/README.md` for migration workflow documentation to keep Supabase setup guidance localized and avoid unrelated root/frontend doc changes.
+- For Task 4, kept schema MVP-focused in one migration file: transaction entities only, explicit audit fields (`created_at`, `updated_at`, payload metadata), and no API/view/function additions.
+- Enforced provider event dedupe and payment idempotency at the database layer with unique constraints/indexes to ensure webhook retries cannot create duplicate side effects.
+- Applied strict RLS boundary design of `ENABLE + FORCE RLS` on all transaction-critical tables with explicit `service_role` manage policies and no anon/authenticated write policies.
+- Standardized canonical table naming to `fulfillments` (instead of attempt-specific naming) to match plan terminology and reduce ambiguity for upcoming service/repository layer work.
+- Added schema-level monotonic safeguards via `status_history` domain-aware transition checks so out-of-order/backward updates are rejected before application logic runs.
+- Replaced the prior Task 4 migration artifact with a fresh CLI-generated migration file and removed the stale file to avoid introducing non-required `fulfillments` schema drift.
+- Kept the transactional schema MVP-only with exactly five tables (`orders`, `payments`, `fulfillment_attempts`, `webhook_events`, `status_history`) plus provider-level unique dedupe constraints needed for webhook/payment idempotency.
+- Chose DB-first verification evidence (table existence, RLS flags, deny-path insert, duplicate event rejection, lint/advisors) before any API-layer implementation so Tasks 7/8/9/11 can rely on stable persistence guarantees.
+- Recreated Task 4 schema as a fresh CLI-generated migration (`supabase migration new transactional_schema_rls_idempotency_task4`) and removed stale empty Task 4 artifact to keep a single active migration file in scope.
+- Standardized on canonical `fulfillments` naming (not `fulfillment_attempts`) to match current task contract and avoid downstream table-name mismatch in API and webhook layers.
+- Kept RLS policy surface minimal and explicit (`FOR ALL TO service_role`) with `ENABLE + FORCE RLS` and explicit `REVOKE` from `anon`/`authenticated` so only service credentials can mutate transaction-critical tables.
+- For stale-file cleanup handling, prefer state-first validation: only delete migration artifacts that are truly empty/noise; retain the sole SQL-bearing Task 4 migration as canonical to avoid accidental schema loss.
+- For this cleanup cycle, executed state-safe no-op deletion (retain canonical `20260422010406_transactional_schema_rls_idempotency_task4_v2.sql`) and treated migration re-run output as authoritative verification evidence.
+- Replaced the prior Task 4 migration artifact with a fresh CLI-generated file (`20260422010406_transactional_schema_rls_idempotency_task4_v2.sql`) and removed the stale predecessor to avoid duplicate canonical table declarations.
+- Added explicit terminal lock semantics in `status_history` checks (`status_history_terminal_state_lock`) to prevent terminal-to-terminal drift while keeping monotonic rank checks auditable.
+- For Task 5 backend, chose Jest + `ts-jest` with test roots constrained to `src/` so smoke tests follow existing TypeScript source layout and avoid introducing a second compile path.
+- For Task 5 frontend, retained Vitest+RTL with existing `vitest.config.ts` and `jsdom` setup, and wired `npm --prefix Frontend test` to `vitest run` for deterministic local CI-ready execution.
+- For Task 5 backend tests, chose Jest + `ts-jest` + Supertest with a dedicated test tsconfig file instead of altering runtime/bootstrap files, so test infra stays isolated and business logic remains untouched.
+- For Task 5 frontend tests, chose Vitest + RTL with `vitest run` script and a jsdom setup file, keeping assertions local-only and independent from external providers or network calls.
+- For Task 6, chose a single repository-level workflow (`.github/workflows/ci-quality-gates.yml`) with explicit sequential backend/frontend gate steps instead of a matrix, prioritizing clear fail-fast logs per gate and exact alignment with existing workspace scripts.
+- For Task 6 implementation, standardized on `.github/workflows/quality-gates.yml` with two explicit jobs (`frontend-quality`, `backend-quality`) so each gate set is independently visible while still failing the overall pipeline on the first job/step failure.
+- Adopted Dockerized `actionlint` as the local semantic validator path in this environment to provide CI-workflow validation evidence without introducing repo dependencies.
+- Canonical Task 6 workflow path for this repo is `.github/workflows/ci-quality-gates.yml`; duplicate ad-hoc workflow files were removed to keep a single source of CI truth.
+- For Task 7, introduced `backend/src/modules/order/**` with an `OrderRepository` abstraction and in-memory implementation so `POST /api/orders` and transition logic can be verified deterministically without external infrastructure coupling.
+- Enforced server authority by rejecting server-controlled status/identity fields in the create-order payload and always initializing new orders as `pending_payment` at service level.
+- Mapped API `invoice_code` response to canonical schema column intent via `orders.order_number`, keeping schema naming (`orders`, `status_history`) aligned with Task 4 while matching Task 7 response contract.

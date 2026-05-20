@@ -1,0 +1,29 @@
+Final F4 dashboard history fix evidence
+Date: 2026-05-14
+
+Covered scenarios:
+- Member /dashboard fetches /api/account/transactions with bearer token and renders returned transaction history including payment/fulfillment status.
+- Member /dashboard keeps the empty state only when /api/account/transactions returns an empty transactions array.
+- Admin /admin fetches /api/admin/monitoring with bearer token and renders read-only transaction and webhook monitoring from backend response.
+- Non-admin session is verified through /api/auth/me and does not fetch or render admin monitoring controls.
+- Backend /api/admin/monitoring remains protected by the existing admin role guard; member token receives 403.
+
+Verification commands:
+- backend: npm test -- --runTestsByPath src/modules/dashboard/dashboard.router.test.ts --silent -> passed, 1 suite, 2 tests.
+- frontend: npm test -- src/test/app.smoke.test.tsx -> passed, 1 suite, 12 tests.
+- backend: npm run typecheck -> passed.
+- backend: npm run lint -> passed after removing one unused import.
+- frontend: npm run typecheck -> passed.
+- frontend: npm run lint -> passed.
+- backend: npm run build -> passed.
+- frontend: npm run build -> passed; Vite noted existing Browserslist caniuse-lite outdated warning.
+- backend full test: npx jest --runInBand --silent --json --outputFile=.sisyphus/evidence/backend-jest-dashboard-history.json -> passed and wrote JSON evidence.
+- frontend full test: npm test -- --run -> passed, 1 suite, 12 tests.
+- LSP diagnostics: clean for backend app/repositories/dashboard module and frontend dashboard/test files.
+
+Manual API QA:
+- Started the built backend app on 127.0.0.1:3119 with in-memory repositories.
+- Registered member/admin via HTTP, seeded one order/payment/fulfillment/webhook server-side, then used fetch against live endpoints.
+- Observed /api/account/transactions returned 200 with paid/success transaction history for member.
+- Observed /api/admin/monitoring returned 403 for member token.
+- Observed /api/admin/monitoring returned 200 for admin token with transaction_count=1 and webhook_count=1.

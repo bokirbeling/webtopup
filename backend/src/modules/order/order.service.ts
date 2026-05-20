@@ -144,22 +144,20 @@ export function createOrderService(options: OrderServiceOptions): OrderService {
       updatedAt: createdAt
     });
 
-    await options.repository.createStatusHistory({
+    const transitionedOrder = await transitionOrderStatus({
       orderId: order.id,
-      fromStatus: null,
-      toStatus: "created",
+      toStatus: "pending_payment",
       note: "order_created",
       metadata: {
         source: "orders_api"
       },
-      createdBy: "system",
-      createdAt
+      createdBy: "system"
     });
 
     return {
       orderId: order.id,
       invoiceCode: order.orderNumber,
-      status: order.status
+      status: transitionedOrder.status
     };
   }
 

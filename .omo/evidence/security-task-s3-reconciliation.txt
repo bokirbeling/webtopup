@@ -1,0 +1,10 @@
+S3. Reconciliation Summary
+
+Implemented status discrepancy rules:
+- Paid but No Fulfillment: Requires manual/recheck trigger.
+- Fulfillment Success but Unpaid: High alert, transition blocked by monotonic guard.
+- terminal states are immutable.
+
+Verification:
+- backend/src/modules/order/order.transition.service.ts
+- docs/payment-integrity/state-machine-and-reconciliation.md

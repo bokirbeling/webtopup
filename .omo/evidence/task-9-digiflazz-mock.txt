@@ -1,0 +1,5 @@
+Task 9 Digiflazz mock fallback evidence
+Scenario: non-production Digiflazz fulfillment trigger runs with missing credentials.
+Expected result: trigger returns provider_mode=mock, fulfillment response_payload.provider_mode=mock, fulfillment status=success, and order status reaches success through OrderService transition rules.
+Production guard: same missing-credential setup with nodeEnv=production returns validation error instead of using mock.
+Verified by: backend/src/modules/fulfillment/fulfillment.router.test.ts mock fallback and production guard tests.

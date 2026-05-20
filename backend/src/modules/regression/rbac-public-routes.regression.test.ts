@@ -68,7 +68,14 @@ function createPublicRouteFixture() {
   });
 
   return {
-    app: createApp({ orderService, paymentService, fulfillmentService }),
+    app: createApp({
+      orderRepository,
+      paymentRepository,
+      fulfillmentRepository,
+      orderService,
+      paymentService,
+      fulfillmentService
+    }),
     orderService
   };
 }

@@ -1,0 +1,7 @@
+S3. Integrity Docs
+
+Documentation created at docs/payment-integrity/state-machine-and-reconciliation.md covers:
+- Allowed status transitions
+- Fraud matrix rejection points
+- Reconciliation process
+- Trust boundaries (Backend as Truth Authority)

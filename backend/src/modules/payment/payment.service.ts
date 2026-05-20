@@ -3,6 +3,7 @@ import { Buffer } from "node:buffer";
 import { OrderTransitionError } from "../order/order.transition.service";
 import { type OrderService } from "../order/order.service";
 import { type CommissionService } from "../commission/commission.service";
+import { type FulfillmentService } from "../fulfillment/fulfillment.service";
 import { type PaymentRepository } from "./payment.repository";
 import { verifyMidtransSignature } from "./payment.signature";
 import { type MidtransWebhookPayload } from "./payment.types";
@@ -17,6 +18,7 @@ type PaymentServiceOptions = Readonly<{
   paymentRepository: PaymentRepository;
   orderService: OrderService;
   commissionService?: CommissionService;
+  fulfillmentService?: FulfillmentService;
   midtransConfig: MidtransConfig;
   providerAuditRepository?: ProviderAuditRepository;
   fetchImpl?: typeof fetch;
@@ -495,12 +497,19 @@ export function createPaymentService(options: PaymentServiceOptions): PaymentSer
             transaction_id: parsed.transactionId,
             status_code: parsed.statusCode
           },
-          createdBy: "system"
+          createdBy: "midtrans_webhook"
         });
 
         // S5: Mark commission payable if order is paid
-        if (targetOrderStatus === "paid" && options.commissionService) {
-          await options.commissionService.markCommissionPayable(order.id);
+        if (targetOrderStatus === "paid") {
+          if (options.commissionService) {
+            await options.commissionService.markCommissionPayable(order.id);
+          }
+          if (options.fulfillmentService) {
+            options.fulfillmentService.triggerPaidOrderFulfillment({ orderId: order.id }).catch((err) => {
+              console.error(`Automatic Digiflazz fulfillment trigger failed for order ${order.id}:`, err);
+            });
+          }
         }
       } catch (error) {
         if (error instanceof OrderTransitionError) {

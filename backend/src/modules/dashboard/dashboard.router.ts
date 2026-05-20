@@ -70,7 +70,7 @@ function serializeWebhook(event: WebhookEventRecord) {
 export function createMemberTransactionsRouter(dependencies: DashboardRouterDependencies) {
   const router = Router();
 
-  router.get("/transactions", async (request, response) => {
+  router.get("/", async (request, response) => {
     const authUser = (request as unknown as AuthenticatedRequest).authUser;
     const transactions = await dependencies.dashboardService.listMemberTransactions(authUser.id);
 
@@ -83,7 +83,7 @@ export function createMemberTransactionsRouter(dependencies: DashboardRouterDepe
 export function createAdminMonitoringRouter(dependencies: DashboardRouterDependencies) {
   const router = Router();
 
-  router.get("/monitoring", async (_request, response) => {
+  router.get("/", async (_request, response) => {
     const monitoring = await dependencies.dashboardService.getAdminMonitoring();
 
     response.status(200).json({

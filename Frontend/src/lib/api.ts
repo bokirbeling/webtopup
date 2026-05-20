@@ -1,5 +1,5 @@
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
-const defaultApiBaseUrl = '/ppob-api';
+const defaultApiBaseUrl = '/api';
 
 export const apiBaseUrl = configuredApiBaseUrl && configuredApiBaseUrl.length > 0 ? configuredApiBaseUrl.replace(/\/$/, '') : defaultApiBaseUrl;
 

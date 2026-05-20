@@ -1,0 +1,28 @@
+Task 1 schema error-path evidence
+Date: 2026-05-14
+
+Invalid data protections added in migration:
+- users.role check rejects values outside admin|seller|pengguna.
+- users.reseller_status check rejects values outside none|requested|approved|rejected.
+- users_reseller_active_status_check rejects active resellers unless status is approved.
+- pricing_rules.scope_type check rejects values outside global|category|product.
+- pricing_rules.role_type check rejects values outside admin|seller|pengguna.
+- pricing_rules.markup_fixed and markup_percentage checks reject negative markups.
+- pricing_rules_scope_target_check rejects invalid scope target combinations:
+  - global must have null product_id and null category.
+  - category must have null product_id and non-empty category.
+  - product must have non-null product_id and null category.
+- products.base_price_minor rejects negative base prices.
+- orders/demo_orders base_price_snapshot, markup_snapshot, and role_price_snapshot checks reject negative snapshot/effective amounts.
+
+Representative statements expected to fail once the migration is applied to a running Supabase database:
+- insert into public.users (email, password_hash, role) values ('bad@example.test', 'hash', 'owner');
+- insert into public.pricing_rules (scope_type, role_type, markup_fixed) values ('invalid', 'pengguna', 0);
+- insert into public.pricing_rules (scope_type, role_type, markup_fixed) values ('global', 'pengguna', -1);
+- insert into public.pricing_rules (scope_type, role_type, category) values ('product', 'pengguna', 'pulsa');
+- insert into public.orders (order_number, product_code, provider, amount_minor, role_price_snapshot) values ('INV-NEG', 'SKU', 'digiflazz', 1, -1);
+
+Dry-run limitation:
+- supabase db lint --local --fail-on error could not connect to 127.0.0.1:54322 because the local database was not running.
+- psql is not installed in this shell.
+- Because there is no executable local database surface, invalid insert rejection was documented as a dry-run substitute against explicit CHECK/FK constraints in the migration.

@@ -1,0 +1,4 @@
+Task 9 Digiflazz success callback evidence
+Scenario: paid Digiflazz order triggers live-mode fulfillment, then /api/fulfillments/digiflazz/callback receives status=Sukses.
+Expected result: callback returns PROCESSED, fulfillment stores provider_reference=order_id, provider_fulfillment_id=DFZ-TRX-9001, serial_number=SN1234567890, status=success, and order status reaches success through OrderService transition rules.
+Verified by: backend/src/modules/fulfillment/fulfillment.router.test.ts success callback test and full backend test suite.

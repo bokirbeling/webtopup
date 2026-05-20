@@ -1,0 +1,21 @@
+Task 8 runbook verification
+Date: 2026-05-14
+
+Documentation updated:
+- readme.md
+- server_spec.md
+
+Local verification commands run from repository root:
+- npm --prefix backend run lint -> PASS
+- npm --prefix backend run typecheck -> PASS
+- npm --prefix backend test -> PASS (13 suites, 35 tests)
+- npm --prefix backend run build -> PASS
+- npm --prefix Frontend run lint -> PASS
+- npm --prefix Frontend run typecheck -> PASS
+- npm --prefix Frontend test -> PASS (1 file, 12 tests)
+- npm --prefix Frontend run build -> PASS
+
+Notes:
+- Frontend production build emitted a non-blocking Browserslist outdated warning.
+- readme.md now documents cPanel-safe build/upload/startup, env split, webhook URLs, rollback, MCP fallback, and smoke checklist.
+- server_spec.md now records the production target and the failed SSH inspection as a blocker rather than a success.

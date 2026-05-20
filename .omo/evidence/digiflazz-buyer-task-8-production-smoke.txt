@@ -1,0 +1,34 @@
+Task 8 production smoke evidence
+
+Local gates before Task 8:
+- Backend lint/typecheck/Jest/build passed during Task 7 verification: 16 suites / 57 tests.
+- Frontend lint/typecheck/Vitest/build passed during Task 7 verification: 12 tests.
+
+Supabase MCP:
+- Applied remote migrations for Task 5/7 during final verification:
+  - 20260515115038 postpaid_inquiries_and_pln_inquiries
+  - 20260515115114 email_verification_fields
+- list_migrations now returns: 20260514015123, 20260514022714, 20260514134959, 20260515115038, 20260515115114.
+- security advisors returned no lints.
+- public and demo postpaid/pln tables exist with RLS enabled; users/demo_users include email verification columns.
+
+Natanetwork MCP:
+- adnanpay-natanetwork MCP failed because its configured key is encrypted and no passphrase was provided.
+
+Direct SSH fallback:
+- SSH with id_rsa_natanetwork succeeded.
+- Remote identity: /home/adnanpay, user adnanpay.
+- /home/adnanpay/public_html exists.
+- /home/adnanpay/ppob-backend exists.
+- cPanel Node runtime found: v20.20.2.
+
+Public HTTPS smoke:
+- https://adnanpay.com/ppob-api/health returned {"status":"ok"}.
+- https://adnanpay.com/ppob-api/api/auth/me without token returned 401, expected.
+- https://adnanpay.com/ppob-api/api/catalog/products returned {"products":[]}.
+- https://adnanpay.com, /dashboard, and /admin still return the previously deployed BayarKu shell, meaning Task 7 Adnanpay branding is not deployed yet.
+
+Decision:
+- Task 8 docs/runbook are updated.
+- Production deploy/pull is documented but not executed because worktree is dirty and user has not explicitly requested commit/push in this step.
+- Before final production claim: commit/push current code, pull on server, preserve .env.production, install/build, restart Passenger, then re-run smoke.

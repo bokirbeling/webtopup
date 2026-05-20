@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { createApp } from "./app";
 import { readEnv, type BackendEnv } from "./config/env";
 import { createSmtpEmailVerificationSender } from "./modules/auth/email-verification.sender";

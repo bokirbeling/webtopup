@@ -1,0 +1,25 @@
+Task: N4. Port admin dashboard and category image upload
+Status: implemented by main agent.
+
+Implemented:
+- `next-frontend/components/AdminDashboard.tsx`
+- `next-frontend/app/admin/page.tsx`
+
+Behavior:
+- `/admin` reads existing custom JWT session from localStorage compatibility key.
+- Anonymous users see admin-forbidden state.
+- Non-admin users are blocked after `/api/auth/me` confirms role.
+- Admin loads `/api/admin/users`, `/api/admin/catalog/products`, `/api/admin/catalog/pricing-rules`, `/api/admin/monitoring`, and `/api/admin/digiflazz/operations`.
+- Admin can trigger Digiflazz price-list sync.
+- Admin can upload category image by file/data URL; image is patched into all products in selected category metadata as `image_url` and `category_image_url`.
+- Admin sees safe Digiflazz saldo/catalog/webhook summary only; no API keys/signatures/secrets are displayed.
+
+Verification:
+- `npm run lint`: passed. Existing non-blocking N2 image fallback warning remains only in catalog.
+- `npm run typecheck`: passed.
+- `npm run build`: passed with Next.js 15.5.18.
+- `lsp_diagnostics` on `AdminDashboard.tsx`: 0 diagnostics.
+- Secret/anti-pattern grep on Next TypeScript source: no service-role/JWT/Digiflazz/Midtrans/SMTP/SSH secret matches.
+
+Route result:
+- `/admin` now renders migrated admin dashboard instead of scaffold placeholder.

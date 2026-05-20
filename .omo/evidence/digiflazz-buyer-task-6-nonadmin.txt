@@ -1,0 +1,18 @@
+Task: Digiflazz Buyer admin operations non-admin protection
+Date: 2026-05-15
+
+Verified protection:
+- Anonymous /admin renders admin-forbidden state and does not fetch private admin APIs.
+- Non-admin stored session calls /api/auth/me, receives non-admin role, and hides all admin controls.
+- Non-admin UI does not render data-testid="digiflazz-ops-panel" or data-testid="digiflazz-sync-button".
+- Backend GET /api/admin/digiflazz/operations returns 401 without token and 403 with non-admin token because it is mounted behind existing authentication + adminOnly middleware.
+
+Secret safety:
+- No UI/test evidence contains DIGIFLAZZ_API_KEY, JWT_SECRET, SERVICE_ROLE, SSH passphrase, raw signature, or webhook secret.
+- Admin panel text explicitly says secret payloads are not rendered.
+
+Commands run:
+- Grep anti-pattern/secret scan on backend dashboard and frontend source: no matches.
+- lsp_diagnostics on backend/src and Frontend/src: no errors.
+- Backend dashboard focused test: passed.
+- Frontend smoke test: passed.

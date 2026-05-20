@@ -1,3 +1,4 @@
+import ws from 'ws';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 export type DashboardContentRepository = {
@@ -50,6 +51,7 @@ export class SupabaseDashboardContentRepository implements DashboardContentRepos
 
   constructor(options: SupabaseDashboardRepositoryOptions) {
     this.client = createClient(options.supabaseUrl, options.supabaseServiceRoleKey, {
+      realtime: { transport: ws as any },
       auth: { persistSession: false }
     });
     this.prefix = options.tablePrefix ?? '';

@@ -139,7 +139,7 @@ export class SupabaseCommissionRepository implements CommissionRepository {
   }
 
   async findCommissionByOrderId(orderId: string): Promise<CommissionRecord | null> {
-    const response = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName("commissions")}?order_id=eq.${orderId}&select=*`, {
+    const response = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName("commissions")}?order_id=eq.${encodeURIComponent(orderId)}&select=*`, {
       headers: this.headers
     });
     if (!response.ok) return null;
@@ -148,7 +148,7 @@ export class SupabaseCommissionRepository implements CommissionRepository {
   }
 
   async updateCommissionStatus(id: string, status: CommissionStatus): Promise<CommissionRecord> {
-    const response = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName("commissions")}?id=eq.${id}`, {
+    const response = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName("commissions")}?id=eq.${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: this.headers,
       body: JSON.stringify({ status, updated_at: new Date().toISOString() })

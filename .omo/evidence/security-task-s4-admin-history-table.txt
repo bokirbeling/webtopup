@@ -1,0 +1,7 @@
+S4. Admin History Table
+
+Admin can access all provider events across all users.
+Includes safe summaries and raw payloads for full auditability.
+
+Verification:
+- backend/src/modules/audit/provider-audit.router.ts

@@ -7,6 +7,7 @@ import { AdminEmailUnverifiedError, AdminUserNotFoundError, type AdminService } 
 import { type ProductUploadService } from "./product-upload.service";
 import { requireAuth, requireRole } from "../../middleware/auth.middleware";
 import { adminLimiter } from "../../middleware/rate-limit.middleware";
+import { adminProductUploadSchema, zodValidate } from "../../shared/validation";
 
 export type AdminRouterDependencies = Readonly<{
   adminService: AdminService;
@@ -44,12 +45,7 @@ function handleAdminError(error: unknown, response: Response) {
 export function createAdminRouter(dependencies: AdminRouterDependencies) {
   const adminRouter = Router();
 
-  // Apply auth and rate limiting to all admin routes
-  adminRouter.use(requireAuth);
-  adminRouter.use(requireRole('admin'));
-  adminRouter.use(adminLimiter);
-
-  adminRouter.post("/products/upload", async (request, response) => {
+  adminRouter.post("/products/upload", zodValidate(adminProductUploadSchema), async (request, response) => {
     if (dependencies.productUploadService === undefined) {
       response.status(503).json({
         error: {
@@ -60,17 +56,7 @@ export function createAdminRouter(dependencies: AdminRouterDependencies) {
       return;
     }
 
-    const fileBase64 = typeof request.body?.file_base64 === "string" ? request.body.file_base64.trim() : "";
-    if (fileBase64.length === 0) {
-      response.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "file_base64 is required."
-        }
-      });
-      return;
-    }
-
+    const fileBase64 = request.body.file_base64 as string;
     const result = await dependencies.productUploadService.processProductUpload(Buffer.from(fileBase64, "base64"));
     if (result.errors.length > 0) {
       response.status(400).json({

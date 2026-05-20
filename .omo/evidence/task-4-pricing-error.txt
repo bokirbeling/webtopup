@@ -1,0 +1,11 @@
+# Task 4 product catalog/pricing error-path evidence
+
+Timestamp: 2026-05-14
+
+Command: npm test -- --runInBand src/modules/catalog/catalog.router.test.ts
+Working directory: backend/
+Observed result: exit code 0; Test Suites: 1 passed, 1 total; Tests: 3 passed, 3 total.
+Covered error paths: inactive product prepare-order returns 409 PRODUCT_INACTIVE; missing product prepare-order returns 404 PRODUCT_NOT_FOUND; CatalogService.quoteProduct throws CatalogProductInactiveError and CatalogProductNotFoundError for Task 5 cannot-order/not-found integration; admin product management returns 401 without JWT and 403 for non-admin; client submitted final_price and price are rejected with VALIDATION_ERROR before quoting.
+
+Command: lsp_diagnostics backend/src/modules/catalog and backend/src/app.ts
+Observed result: no diagnostics found across changed catalog files and app.ts.

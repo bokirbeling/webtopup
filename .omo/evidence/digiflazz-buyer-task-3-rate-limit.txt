@@ -1,0 +1,24 @@
+Digiflazz Buyer Task 3 - Rate Limit Evidence
+Date: 2026-05-15
+
+Implemented guard:
+- Service-level minimum interval defaults to 15 minutes.
+- Guard is clock-aware inside createDigiflazzPriceListSyncService.
+- Repeated full sync before the interval returns HTTP 429 from the admin route.
+- The public catalog route reads cached DB products only and does not call Digiflazz.
+
+Focused Jest observations:
+- First admin POST /api/admin/catalog/digiflazz/price-list/sync returned 200.
+- Immediate second admin POST /api/admin/catalog/digiflazz/price-list/sync returned 429.
+- 429 body included code DIGIFLAZZ_PRICE_LIST_SYNC_RATE_LIMITED, retry_at, and remaining_ms.
+- Mocked Digiflazz fetch request count stayed at 1 after the rate-limited second request.
+- Public GET /api/catalog/products after sync returned only active cached products and did not increase mocked Digiflazz fetch request count.
+
+Commands run:
+- npm test -- --runTestsByPath src/modules/catalog/catalog.router.test.ts --silent: passed, 6 tests.
+- npm test -- --silent: passed.
+- npm run build: passed.
+
+Secret handling:
+- Rate-limit verification used mocked Digiflazz responses only.
+- No live credentials or signatures are included here.

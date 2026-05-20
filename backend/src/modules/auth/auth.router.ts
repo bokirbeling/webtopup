@@ -12,134 +12,18 @@ import {
 } from "./auth.service";
 import { readBearerToken, sendUnauthorized } from "./auth.middleware";
 import { type AuthSession, type AuthUser, type EmailVerificationStatus } from "./auth.types";
+import {
+  registerSchema,
+  loginSchema,
+  updateProfileSchema,
+  changePinSchema,
+  verificationTokenSchema,
+  zodValidate
+} from "../../shared/validation";
 
 type AuthRouterDependencies = Readonly<{
   authService: AuthService;
 }>;
-
-type ValidationIssue = Readonly<{
-  field: string;
-  message: string;
-}>;
-
-type CredentialsValidationResult =
-  | Readonly<{
-      ok: true;
-      email: string;
-      password: string;
-    }>
-  | Readonly<{
-      ok: false;
-      issues: ValidationIssue[];
-    }>;
-
-const FORBIDDEN_REGISTER_FIELDS = new Set([
-  "id",
-  "role",
-  "password_hash",
-  "is_reseller_active",
-  "reseller_status",
-  "email_verified_at",
-  "email_verification_token_hash",
-  "email_verification_expires_at",
-  "email_verification_sent_at",
-  "email_verification_resend_count",
-  "created_at",
-  "updated_at"
-]);
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function validateCredentialsPayload(payload: unknown, rejectServerControlledFields: boolean): CredentialsValidationResult {
-  if (!isPlainObject(payload)) {
-    return {
-      ok: false,
-      issues: [
-        {
-          field: "body",
-          message: "Request body must be a JSON object."
-        }
-      ]
-    };
-  }
-
-  const issues: ValidationIssue[] = [];
-
-  if (rejectServerControlledFields) {
-    for (const field of FORBIDDEN_REGISTER_FIELDS) {
-      if (field in payload) {
-        issues.push({
-          field,
-          message: field + " is server-controlled and cannot be provided."
-        });
-      }
-    }
-  }
-
-  const emailRaw = payload.email;
-  const passwordRaw = payload.password;
-
-  if (typeof emailRaw !== "string" || emailRaw.trim() === "" || !emailRaw.includes("@")) {
-    issues.push({
-      field: "email",
-      message: "email is required and must be a valid email address."
-    });
-  }
-
-  if (typeof passwordRaw !== "string" || passwordRaw.length < 8) {
-    issues.push({
-      field: "password",
-      message: "password is required and must be at least 8 characters."
-    });
-  }
-
-  if (issues.length > 0) {
-    return {
-      ok: false,
-      issues
-    };
-  }
-
-  return {
-    ok: true,
-    email: (emailRaw as string).trim(),
-    password: passwordRaw as string
-  };
-}
-
-function validateVerificationPayload(payload: unknown): { ok: true; token: string } | { ok: false; issues: ValidationIssue[] } {
-  if (!isPlainObject(payload)) {
-    return {
-      ok: false,
-      issues: [
-        {
-          field: "body",
-          message: "Request body must be a JSON object."
-        }
-      ]
-    };
-  }
-
-  const tokenRaw = payload.token;
-  if (typeof tokenRaw !== "string" || tokenRaw.trim() === "") {
-    return {
-      ok: false,
-      issues: [
-        {
-          field: "token",
-          message: "token is required."
-        }
-      ]
-    };
-  }
-
-  return {
-    ok: true,
-    token: tokenRaw.trim()
-  };
-}
 
 function toUserResponse(user: AuthUser) {
   return {
@@ -150,6 +34,9 @@ function toUserResponse(user: AuthUser) {
     reseller_status: user.resellerStatus,
     email_verified: user.emailVerifiedAt !== null,
     email_verified_at: user.emailVerifiedAt?.toISOString() ?? null,
+    name: user.metadata?.name || "",
+    phone_number: user.metadata?.no_hp || "",
+    has_pin: !!user.metadata?.pin_hash,
     created_at: user.createdAt.toISOString(),
     updated_at: user.updatedAt.toISOString()
   };
@@ -193,24 +80,27 @@ function readRequiredBearerToken(authorizationHeader: string | undefined, respon
 export function createAuthRouter(dependencies: AuthRouterDependencies) {
   const authRouter = Router();
 
-  authRouter.post("/register", async (request, response) => {
-    const validation = validateCredentialsPayload(request.body, true);
-    if (!validation.ok) {
+  authRouter.post("/register", zodValidate(registerSchema), async (request, response) => {
+    if ("role" in request.body) {
       response.status(400).json({
         error: {
           code: "VALIDATION_ERROR",
           message: "Invalid registration payload.",
-          details: validation.issues
+          details: [
+            {
+              field: "role",
+              message: "role is server-controlled and cannot be provided."
+            }
+          ]
         }
       });
-
       return;
     }
 
     try {
       const session = await dependencies.authService.register({
-        email: validation.email,
-        password: validation.password
+        email: request.body.email,
+        password: request.body.password
       });
 
       response.status(201).json(toSessionResponse(session));
@@ -230,24 +120,11 @@ export function createAuthRouter(dependencies: AuthRouterDependencies) {
     }
   });
 
-  authRouter.post("/login", async (request, response) => {
-    const validation = validateCredentialsPayload(request.body, false);
-    if (!validation.ok) {
-      response.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Invalid login payload.",
-          details: validation.issues
-        }
-      });
-
-      return;
-    }
-
+  authRouter.post("/login", zodValidate(loginSchema), async (request, response) => {
     try {
       const session = await dependencies.authService.login({
-        email: validation.email,
-        password: validation.password
+        email: request.body.email,
+        password: request.body.password
       });
 
       response.status(200).json(toSessionResponse(session));
@@ -329,26 +206,14 @@ export function createAuthRouter(dependencies: AuthRouterDependencies) {
   authRouter.post("/email-verification/request", handleVerificationRequest);
   authRouter.post("/email-verification/resend", handleVerificationRequest);
 
-  authRouter.post("/email-verification/verify", async (request, response) => {
+  authRouter.post("/email-verification/verify", zodValidate(verificationTokenSchema), async (request, response) => {
     const token = readRequiredBearerToken(request.header("authorization"), response);
     if (token === null) {
       return;
     }
 
-    const validation = validateVerificationPayload(request.body);
-    if (!validation.ok) {
-      response.status(400).json({
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "Invalid email verification payload.",
-          details: validation.issues
-        }
-      });
-      return;
-    }
-
     try {
-      const user = await dependencies.authService.verifyEmail(token, validation.token);
+      const user = await dependencies.authService.verifyEmail(token, request.body.token);
       response.status(200).json({
         user: toUserResponse(user)
       });
@@ -369,6 +234,77 @@ export function createAuthRouter(dependencies: AuthRouterDependencies) {
       }
 
       throw error;
+    }
+  });
+
+  authRouter.get("/profile", async (request, response) => {
+    const token = readRequiredBearerToken(request.header("authorization"), response);
+    if (token === null) {
+      return;
+    }
+
+    try {
+      const user = await dependencies.authService.getCurrentUser(token);
+      response.status(200).json({
+        success: true,
+        user: toUserResponse(user)
+      });
+    } catch (error) {
+      if (error instanceof InvalidAuthTokenError) {
+        sendUnauthorized(response);
+        return;
+      }
+      response.status(500).json({ success: false, message: "Gagal mengambil data profil" });
+    }
+  });
+
+  authRouter.put("/profile", zodValidate(updateProfileSchema), async (request, response) => {
+    const token = readRequiredBearerToken(request.header("authorization"), response);
+    if (token === null) {
+      return;
+    }
+
+    try {
+      const user = await dependencies.authService.updateProfile(token, {
+        name: request.body.name,
+        phoneNumber: request.body.phone_number
+      });
+      response.status(200).json({
+        success: true,
+        message: "Profil berhasil diperbarui",
+        user: toUserResponse(user)
+      });
+    } catch (error) {
+      if (error instanceof InvalidAuthTokenError) {
+        sendUnauthorized(response);
+        return;
+      }
+      response.status(500).json({ success: false, message: "Gagal memperbarui profil" });
+    }
+  });
+
+  authRouter.post("/change-pin", zodValidate(changePinSchema), async (request, response) => {
+    const token = readRequiredBearerToken(request.header("authorization"), response);
+    if (token === null) {
+      return;
+    }
+
+    try {
+      const user = await dependencies.authService.changePin(token, request.body.old_pin || null, request.body.new_pin);
+      response.status(200).json({
+        success: true,
+        message: "PIN transaksi berhasil diperbarui",
+        user: toUserResponse(user)
+      });
+    } catch (error: any) {
+      if (error instanceof InvalidAuthTokenError) {
+        sendUnauthorized(response);
+        return;
+      }
+      response.status(400).json({
+        success: false,
+        message: error.message || "Gagal memperbarui PIN"
+      });
     }
   });
 

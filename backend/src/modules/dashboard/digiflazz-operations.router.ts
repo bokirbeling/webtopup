@@ -32,7 +32,7 @@ export function createAdminDigiflazzOperationsRouter(dependencies: DigiflazzOper
   const router = Router();
   const buyerClient = createDigiflazzBuyerClient(dependencies.digiflazzConfig, dependencies.fetchImpl);
 
-  router.get("/digiflazz/operations", async (_request, response, next) => {
+  router.get("/", async (_request, response, next) => {
     try {
       const [balanceResponse, products, webhooks] = await Promise.all([
         buyerClient.balance(),

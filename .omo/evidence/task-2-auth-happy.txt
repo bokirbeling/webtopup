@@ -1,0 +1,5 @@
+command: npx tsx auth happy-path driver
+register.status=201; role=pengguna; has_password_hash=false
+login.status=200; token_type=string; has_password_hash=false
+me.status=200; email=evidence@example.com; role=pengguna
+prefixed_me.status=200; same_user=true

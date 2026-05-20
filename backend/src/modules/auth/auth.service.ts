@@ -40,6 +40,8 @@ export type AuthService = Readonly<{
   getCurrentUser(token: string): Promise<AuthUser>;
   requestEmailVerification(token: string): Promise<EmailVerificationRequestResult>;
   verifyEmail(token: string, verificationToken: string): Promise<AuthUser>;
+  updateProfile(token: string, input: { name?: string; phoneNumber?: string }): Promise<AuthUser>;
+  changePin(token: string, oldPin: string | null, newPin: string): Promise<AuthUser>;
 }>;
 
 export class EmailAlreadyRegisteredError extends Error {
@@ -96,6 +98,7 @@ function toPublicUser(user: AuthUser): AuthUser {
     isResellerActive: user.isResellerActive,
     resellerStatus: user.resellerStatus,
     emailVerifiedAt: user.emailVerifiedAt,
+    metadata: user.metadata,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt
   };
@@ -300,6 +303,57 @@ export function createAuthService(options: AuthServiceOptions): AuthService {
           updatedAt: now
         })
       );
+    },
+
+    async updateProfile(token: string, input: { name?: string; phoneNumber?: string }): Promise<AuthUser> {
+      const user = await getRecordFromToken(token);
+      const now = clock();
+      const currentMeta = user.metadata || {};
+
+      const metadata = {
+        ...currentMeta,
+        name: input.name !== undefined ? input.name : currentMeta.name,
+        no_hp: input.phoneNumber !== undefined ? input.phoneNumber : currentMeta.no_hp
+      };
+
+      const updated = await options.repository.updateUser(user.id, {
+        metadata,
+        updatedAt: now
+      });
+
+      return toPublicUser(updated);
+    },
+
+    async changePin(token: string, oldPin: string | null, newPin: string): Promise<AuthUser> {
+      const user = await getRecordFromToken(token);
+      const now = clock();
+      const currentMeta = user.metadata || {};
+
+      // If user already has a PIN, oldPin is required and must match
+      if (currentMeta.pin_hash) {
+        if (!oldPin) {
+          throw new Error("PIN lama wajib diisi");
+        }
+        const matches = await compare(oldPin, currentMeta.pin_hash);
+        if (!matches) {
+          throw new Error("PIN lama salah");
+        }
+      }
+
+      // Hash the new PIN using bcryptjs
+      const pinHash = await hash(newPin, 10);
+
+      const metadata = {
+        ...currentMeta,
+        pin_hash: pinHash
+      };
+
+      const updated = await options.repository.updateUser(user.id, {
+        metadata,
+        updatedAt: now
+      });
+
+      return toPublicUser(updated);
     }
   };
 }

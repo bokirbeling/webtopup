@@ -56,6 +56,7 @@ describe("midtrans payment routes", () => {
     const app = createApp({
       orderService: services.orderService,
       paymentRepository: services.paymentRepository,
+      paymentService: services.paymentService,
       midtransConfig: {
         serverKey: "test-server-key",
         clientKey: "test-client-key",
@@ -95,6 +96,7 @@ describe("midtrans payment routes", () => {
     const app = createApp({
       orderService: services.orderService,
       paymentRepository: services.paymentRepository,
+      paymentService: services.paymentService,
       midtransConfig: {
         serverKey: "test-server-key",
         clientKey: "test-client-key",
@@ -179,6 +181,8 @@ describe("midtrans payment routes", () => {
     const app = createApp({
       orderService: services.orderService,
       paymentRepository: services.paymentRepository,
+      paymentService: services.paymentService,
+      auditLogger,
       midtransConfig: {
         serverKey: "test-server-key",
         clientKey: "test-client-key",
@@ -251,6 +255,7 @@ describe("midtrans payment routes", () => {
     const app = createApp({
       orderService: services.orderService,
       paymentRepository: services.paymentRepository,
+      paymentService: services.paymentService,
       midtransConfig: {
         serverKey: "test-server-key",
         clientKey: "test-client-key",
@@ -311,6 +316,7 @@ describe("midtrans payment routes", () => {
     const app = createApp({
       orderService: services.orderService,
       paymentRepository: services.paymentRepository,
+      paymentService: services.paymentService,
       midtransConfig: {
         serverKey: "test-server-key",
         clientKey: "test-client-key",
@@ -391,6 +397,12 @@ describe("midtrans payment routes", () => {
     const app = createApp({
       orderService: services.orderService,
       paymentRepository: services.paymentRepository,
+      paymentService: services.paymentService,
+      auditLogger,
+      rateLimit: {
+        windowMs: 60_000,
+        maxRequests: 1
+      },
       midtransConfig: {
         serverKey: "test-server-key",
         clientKey: "test-client-key",

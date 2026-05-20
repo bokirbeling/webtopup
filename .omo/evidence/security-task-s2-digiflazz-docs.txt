@@ -1,0 +1,8 @@
+S2. Digiflazz integrity docs
+
+Documentation created at docs/payment-integrity/digiflazz-response-flow.md covers:
+- Fulfillment truth source
+- Trigger pre-conditions (paid only)
+- Webhook security (HMAC, User-Agent)
+- Reconciliation matrix
+- Monotonic guards

@@ -104,7 +104,7 @@ export class SupabaseProviderAuditRepository implements ProviderAuditRepository 
   async listProviderEvents(filters: { orderId?: string; userId?: string; limit?: number }): Promise<readonly ProviderEventRecord[]> {
     let url = `${this.supabaseUrl}/rest/v1/${this.tableName("provider_events")}?select=*&order=created_at.desc&limit=${filters.limit ?? 50}`;
     
-    if (filters.orderId) url += `&order_id=eq.${filters.orderId}`;
+    if (filters.orderId) url += `&order_id=eq.${encodeURIComponent(filters.orderId)}`;
     
     // Note: userId filtering in REST requires a join or separate query if not in provider_events table.
     // Assuming for now user only sees their order events via orderId filter from route.
@@ -152,7 +152,7 @@ export class SupabaseProviderAuditRepository implements ProviderAuditRepository 
   async listLedgerEntries(filters: { provider?: ProviderName; limit?: number }): Promise<readonly BalanceLedgerRecord[]> {
     let url = `${this.supabaseUrl}/rest/v1/${this.tableName("balance_ledgers")}?select=*&order=created_at.desc&limit=${filters.limit ?? 50}`;
     
-    if (filters.provider) url += `&provider=eq.${filters.provider}`;
+    if (filters.provider) url += `&provider=eq.${encodeURIComponent(filters.provider)}`;
 
     const response = await fetch(url, {
       method: "GET",

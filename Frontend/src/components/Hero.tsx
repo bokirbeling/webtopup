@@ -1,21 +1,54 @@
-import { useState } from 'react';
-import { Search, Zap, Phone, Gamepad2, CreditCard, Wifi, Droplets, Shield, Tv } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Zap, Phone, Gamepad2, CreditCard, Wifi, Droplets, Shield, Tv, Loader2 } from 'lucide-react';
+import { buildApiUrl } from '../lib/api';
 
-const quickLinks = [
-  { label: 'Pulsa', icon: Phone, color: 'from-blue-500 to-blue-600' },
-  { label: 'Listrik', icon: Zap, color: 'from-amber-500 to-orange-500' },
-  { label: 'Game', icon: Gamepad2, color: 'from-emerald-500 to-teal-600' },
-  { label: 'E-Wallet', icon: CreditCard, color: 'from-rose-500 to-pink-600' },
-  { label: 'Internet', icon: Wifi, color: 'from-sky-500 to-cyan-600' },
-  { label: 'PDAM', icon: Droplets, color: 'from-teal-500 to-cyan-500' },
-  { label: 'BPJS', icon: Shield, color: 'from-green-500 to-emerald-600' },
-  { label: 'TV Kabel', icon: Tv, color: 'from-violet-500 to-purple-600' },
-];
+type QuickLink = {
+  id: string;
+  title: string;
+  icon_name: string;
+  link: string;
+  is_active: boolean;
+  display_order: number;
+};
+
+const iconMap: Record<string, any> = {
+  Phone, Zap, Gamepad2, CreditCard, Wifi, Droplets, Shield, Tv
+};
+
+const colorMap: Record<string, string> = {
+  'Pulsa': 'from-blue-500 to-blue-600',
+  'PLN': 'from-amber-500 to-orange-500',
+  'Games': 'from-emerald-500 to-teal-600',
+  'E-Money': 'from-rose-500 to-pink-600',
+  'Data': 'from-sky-500 to-cyan-600',
+  'Voucher': 'from-violet-500 to-purple-600',
+};
 
 export default function Hero() {
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState('Semua');
+  const [quickLinks, setQuickLinks] = useState<QuickLink[]>([]);
+  const [loading, setLoading] = useState(true);
   const tabs = ['Semua', 'Terpopuler', 'Promo', 'Baru'];
+
+  useEffect(() => {
+    async function fetchQuickLinks() {
+      try {
+        const url = buildApiUrl('/dashboard/hero');
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          setQuickLinks(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch quick links:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchQuickLinks();
+  }, []);
 
   return (
     <section className="relative pt-16 overflow-hidden">
@@ -94,21 +127,32 @@ export default function Hero() {
           </div>
 
           {/* Quick Links */}
-          <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
-            {quickLinks.map(({ label, icon: Icon, color }) => (
-              <button
-                key={label}
-                className="group flex flex-col items-center gap-2 p-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-200 hover:-translate-y-1"
-              >
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
-                  <Icon size={18} className="text-white" />
-                </div>
-                <span className="text-slate-300 text-xs font-medium group-hover:text-white transition-colors">
-                  {label}
-                </span>
-              </button>
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+              {quickLinks.map((link) => {
+                const Icon = iconMap[link.icon_name] || Phone;
+                const color = colorMap[link.title] || 'from-slate-500 to-slate-600';
+                
+                return (
+                  <button
+                    key={link.id}
+                    className="group flex flex-col items-center gap-2 p-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-200 hover:-translate-y-1"
+                  >
+                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
+                      <Icon size={18} className="text-white" />
+                    </div>
+                    <span className="text-slate-300 text-xs font-medium group-hover:text-white transition-colors">
+                      {link.title}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

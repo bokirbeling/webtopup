@@ -1,0 +1,4 @@
+[PRECHECK] mode=missing-source-guard
+[PRECHECK] source=C:\Users\Administrator\.config\opencode\__missing_source_precheck__.json
+[PRECHECK] exists=False
+[PRECHECK] ERROR: source config missing (expected guard failure).

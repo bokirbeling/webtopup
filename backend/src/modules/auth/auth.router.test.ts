@@ -52,6 +52,9 @@ describe("auth routes", () => {
         reseller_status: "none",
         email_verified: false,
         email_verified_at: null,
+        name: "",
+        phone_number: "",
+        has_pin: false,
         created_at: expect.any(String),
         updated_at: expect.any(String)
       },
@@ -167,6 +170,7 @@ describe("auth routes", () => {
   it("enforces verification resend cooldown and rate limit", async () => {
     const sentMessages: EmailVerificationMessage[] = [];
     let nowMs = Date.parse("2026-05-15T10:00:00.000Z");
+    (global as any).authClock = () => new Date(nowMs);
     const app = createApp({
       emailVerificationSender: {
         async sendVerificationEmail(message) {
@@ -219,6 +223,7 @@ describe("auth routes", () => {
       }
     });
     expect(sentMessages).toHaveLength(5);
+    delete (global as any).authClock;
   });
 
   it("uses generic login failures and rejects missing or invalid bearer tokens", async () => {

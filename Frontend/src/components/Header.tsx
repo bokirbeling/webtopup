@@ -38,7 +38,7 @@ export default function Header() {
     }
 
     // Fetch user profile info
-    fetch(buildApiUrl('/api/auth/me'), {
+    fetch(buildApiUrl('/auth/me'), {
       headers: {
         'Authorization': `Bearer ${token}`
       }

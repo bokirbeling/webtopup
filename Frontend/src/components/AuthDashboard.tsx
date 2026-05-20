@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, BadgeCheck, Boxes, CheckCircle2, Loader2, LogOut, ReceiptText, RefreshCw, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
 
 import { bearerHeaders, readJsonApi } from '../lib/api';
+import { setAuthToken, clearAuthToken } from '../lib/auth';
 
 type AuthUserRole = 'admin' | 'seller' | 'pengguna';
 type ResellerStatus = 'none' | 'requested' | 'approved' | 'rejected';
@@ -167,10 +168,10 @@ export default function AuthDashboard() {
 
     try {
       const [mePayload, accountPayload, catalogPayload, transactionsPayload] = await Promise.all([
-        readJsonApi<AccountResponse>('/api/auth/me', { headers: bearerHeaders(activeToken) }),
-        readJsonApi<AccountResponse>('/api/account/status', { headers: bearerHeaders(activeToken) }),
-        readJsonApi<CatalogResponse>('/api/catalog/products', { headers: bearerHeaders(activeToken) }),
-        readJsonApi<TransactionsResponse>('/api/account/transactions', { headers: bearerHeaders(activeToken) }),
+        readJsonApi<AccountResponse>('/auth/me', { headers: bearerHeaders(activeToken) }),
+        readJsonApi<AccountResponse>('/account/status', { headers: bearerHeaders(activeToken) }),
+        readJsonApi<CatalogResponse>('/catalog/products', { headers: bearerHeaders(activeToken) }),
+        readJsonApi<TransactionsResponse>('/account/transactions', { headers: bearerHeaders(activeToken) }),
       ]);
 
       setAccountUser(accountPayload.user);
@@ -216,7 +217,7 @@ export default function AuthDashboard() {
     setResellerMessage(null);
 
     try {
-      const payload = await readJsonApi<AuthSession>(authMode === 'login' ? '/api/auth/login' : '/api/auth/register', {
+      const payload = await readJsonApi<AuthSession>(authMode === 'login' ? '/auth/login' : '/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -225,6 +226,7 @@ export default function AuthDashboard() {
       storeSession(payload);
       setSession(payload);
       setAccountUser(payload.user);
+      setAuthToken(payload.token);
       setEmail('');
       setPassword('');
     } catch (error) {
@@ -242,6 +244,7 @@ export default function AuthDashboard() {
     setTransactions([]);
     setDashboardError(null);
     setResellerMessage(null);
+    clearAuthToken();
   };
 
   const requestReseller = async () => {
@@ -253,7 +256,7 @@ export default function AuthDashboard() {
     setResellerMessage(null);
 
     try {
-      const payload = await readJsonApi<AccountResponse>('/api/account/reseller-request', {
+      const payload = await readJsonApi<AccountResponse>('/account/reseller-request', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

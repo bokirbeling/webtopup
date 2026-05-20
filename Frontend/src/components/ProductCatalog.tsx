@@ -87,7 +87,22 @@ export default function ProductCatalog({ initialCategory }: ProductCatalogProps 
       }
 
       const data = await response.json();
-      const productList = data.products || [];
+      // Flatten the nested product structure
+      const productList = (data.products || []).map((item: any) => ({
+        id: item.product.id,
+        sku_digiflazz: item.product.sku_digiflazz,
+        name: item.product.name,
+        category: item.product.category,
+        provider: item.product.provider,
+        base_price_minor: item.base_price_minor,
+        final_price_minor: item.final_price_minor,
+        metadata: item.product.metadata,
+        main_category: item.product.main_category,
+        sub_category: item.product.sub_category,
+        product_type: item.product.product_type,
+        image_url: item.product.metadata?.image_url,
+        fallback_image_url: item.product.metadata?.image_url
+      }));
       const pagination = data.pagination || { total: 0, totalPages: 1 };
 
       if (isAppend) {

@@ -93,9 +93,7 @@ function requireString(value: unknown): string | null {
 }
 
 function isLiveDigiflazzConfigured(config: DigiflazzConfig): boolean {
-  if (config.apiKey && config.apiKey.startsWith("dev-")) {
-    return false;
-  }
+  // Allow development/sandbox keys to be treated as live to hit the Digiflazz sandbox API directly
   return missingDigiflazzBuyerCredentialFields(config).length === 0;
 }
 

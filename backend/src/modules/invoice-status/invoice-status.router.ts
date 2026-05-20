@@ -69,6 +69,7 @@ export function createInvoiceStatusRouter(dependencies: InvoiceStatusRouterDepen
       const lookup = await dependencies.invoiceStatusService.getInvoiceStatus(invoiceCode);
       response.status(200).json(serializeInvoiceStatus(lookup));
     } catch (error) {
+      console.error("[InvoiceStatus] Error looking up invoice status:", error);
       if (error instanceof InvoiceNotFoundError) {
         response.status(404).json({
           error: {

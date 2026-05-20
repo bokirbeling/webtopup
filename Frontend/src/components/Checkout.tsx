@@ -166,10 +166,24 @@ export default function Checkout({ product, userRole = 'customer', onClose, onCh
         reseller_price: isReseller && product.reseller_price_minor ? product.reseller_price_minor * quantity : undefined
       } : null;
 
+      // Get logged in user ID if available
+      let userId: string | null = null;
+      try {
+        const sessionStr = window.localStorage.getItem('bayarku.auth.session');
+        if (sessionStr) {
+          const session = JSON.parse(sessionStr);
+          if (session?.user?.id) {
+            userId = session.user.id;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to read session for checkout:', e);
+      }
+
       const payload = {
         items,
         voucher_code: voucherData,
-        user_id: null // Guest checkout
+        user_id: userId
       };
 
       const response = await fetch(`${API_BASE}/orders/create`, {

@@ -369,35 +369,75 @@ export class SupabaseOrderRepository implements OrderRepository {
   }
 
   async listOrdersByUserId(userId: string, limit: number): Promise<OrderRecord[]> {
-    const response = await this.request(
-      "/rest/v1/orders?user_id=eq." + encodeURIComponent(userId) + "&select=" + ORDER_SELECT + "&order=created_at.desc&limit=" + limit,
-      {
-        method: "GET"
-      }
-    );
+    const [response, guestResponse] = await Promise.all([
+      this.request(
+        "/rest/v1/orders?user_id=eq." + encodeURIComponent(userId) + "&select=" + ORDER_SELECT + "&order=created_at.desc&limit=" + limit,
+        {
+          method: "GET"
+        }
+      ),
+      this.request(
+        "/rest/v1/guest_orders?user_id=eq." + encodeURIComponent(userId) + "&select=*,guest_order_items(*)&order=created_at.desc&limit=" + limit,
+        {
+          method: "GET"
+        }
+      )
+    ]);
 
-    const payload = await readJson(response);
+    const [payload, guestPayload] = await Promise.all([
+      readJson(response),
+      readJson(guestResponse)
+    ]);
+
     if (!response.ok) {
       throw new Error(extractErrorMessage(payload));
     }
+    if (!guestResponse.ok) {
+      throw new Error(extractErrorMessage(guestPayload));
+    }
 
-    return Array.isArray(payload) ? payload.map(parseOrderRow) : [];
+    const orders = Array.isArray(payload) ? payload.map(parseOrderRow) : [];
+    const guestOrders = Array.isArray(guestPayload) ? guestPayload.map(parseGuestOrderRow) : [];
+
+    return [...orders, ...guestOrders]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
   }
 
   async listRecentOrders(limit: number): Promise<OrderRecord[]> {
-    const response = await this.request(
-      "/rest/v1/orders?select=" + ORDER_SELECT + "&order=created_at.desc&limit=" + limit,
-      {
-        method: "GET"
-      }
-    );
+    const [response, guestResponse] = await Promise.all([
+      this.request(
+        "/rest/v1/orders?select=" + ORDER_SELECT + "&order=created_at.desc&limit=" + limit,
+        {
+          method: "GET"
+        }
+      ),
+      this.request(
+        "/rest/v1/guest_orders?select=*,guest_order_items(*)&order=created_at.desc&limit=" + limit,
+        {
+          method: "GET"
+        }
+      )
+    ]);
 
-    const payload = await readJson(response);
+    const [payload, guestPayload] = await Promise.all([
+      readJson(response),
+      readJson(guestResponse)
+    ]);
+
     if (!response.ok) {
       throw new Error(extractErrorMessage(payload));
     }
+    if (!guestResponse.ok) {
+      throw new Error(extractErrorMessage(guestPayload));
+    }
 
-    return Array.isArray(payload) ? payload.map(parseOrderRow) : [];
+    const orders = Array.isArray(payload) ? payload.map(parseOrderRow) : [];
+    const guestOrders = Array.isArray(guestPayload) ? guestPayload.map(parseGuestOrderRow) : [];
+
+    return [...orders, ...guestOrders]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
   }
 
   async updateOrderStatus(orderId: string, status: OrderStatus, updatedAt: Date): Promise<OrderRecord> {
